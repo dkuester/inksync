@@ -1,0 +1,8 @@
+{
+  "input_db": "input/KoboReader.sqlite",
+  "output_dir": "output",
+  "last_export_file": "last_export.json",
+  "handwriting_tool_path": "tools/kobo-markup-generator",
+  "export_handwriting": true
+}
+
