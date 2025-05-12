@@ -1,107 +1,138 @@
-import os
-import json
 import sqlite3
+import os
+import re
+import argparse
+import yaml
 from datetime import datetime
-from dateutil import parser as dateparser
 from pathlib import Path
-from markdownify import markdownify as md
 
-# Lade Konfiguration
-with open("config.json") as f:
-    config = json.load(f)
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Exportiere Annotationen aus KoboReader.sqlite")
+    parser.add_argument("--db", default="~/inksync/input/KoboReader.sqlite", help="Pfad zur SQLite-Datenbank")
+    parser.add_argument("--output", default="~/inksync/output", help="Zielordner für Markdown-Dateien")
+    return parser.parse_args()
 
-input_db = config["input_db"]
-output_dir = config["output_dir"]
-last_export_file = config["last_export_file"]
-handwriting_tool_path = config.get("handwriting_tool_path")
-export_handwriting = config.get("export_handwriting", False)
+def sanitize_filename(text):
+    if not isinstance(text, str) or text is None:
+        text = "Unbekannt"
+    return re.sub(r"[\\/*?\[\]:;]", "", text)
 
-os.makedirs(output_dir, exist_ok=True)
+def detect_source_and_stats(content_id: str, content_type: int):
+    if content_id.startswith("file:"):
+        quelle = "Calibre"
+        statistik = content_type == 6  # KEPUB
+    elif content_id.startswith("library:"):
+        quelle = "Onleihe"
+        statistik = False
+    elif content_id.startswith("book:"):
+        quelle = "Kobo Store"
+        statistik = True
+    else:
+        quelle = "Unbekannt"
+        statistik = False
+    return quelle, statistik
 
-# Lade letzten Exportzeitpunkt
-if os.path.exists(last_export_file):
-    with open(last_export_file) as f:
-        last_export = json.load(f)
-else:
-    last_export = {"last_timestamp": "1970-01-01T00:00:00"}
+def fetch_annotations(db_path):
+    conn = sqlite3.connect(os.path.expanduser(db_path))
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
 
-last_ts = dateparser.parse(last_export["last_timestamp"])
+    cur.execute("""
+        SELECT
+            b.BookmarkID,
+            b.ContentID,
+            b.Text,
+            b.Annotation,
+            b.DateCreated,
+            b.ChapterProgress,
+            c.Title,
+            c.Attribution,
+            c.ContentType
+        FROM Bookmark b
+        JOIN content c ON b.ContentID = c.ContentID
+        WHERE b.Text IS NOT NULL OR b.Annotation IS NOT NULL
+        ORDER BY c.Title, b.DateCreated
+    """)
 
-# Verbinde zur SQLite DB
-conn = sqlite3.connect(input_db)
-c = conn.cursor()
+    annotations = {}
+    for row in cur.fetchall():
+        book_key = (row["Title"], row["Attribution"], row["ContentID"], row["ContentType"])
+        if book_key not in annotations:
+            annotations[book_key] = []
+        annotations[book_key].append({
+            "highlight": row["Text"],
+            "note": row["Annotation"],
+            "chapter_progress": row["ChapterProgress"],
+            "date": row["DateCreated"],
+        })
 
-# Hole Annotationen (Highlights & Notizen)
-c.execute("""
-    SELECT Bookmark.Text, Bookmark.DateCreated, Content.ContentID, Content.Title, Content.Attribution, Bookmark.Annotation
-    FROM Bookmark
-    JOIN Content ON Bookmark.ContentID = Content.ContentID
-    WHERE Bookmark.DateCreated > ?
-""", (last_ts.isoformat(),))
+    conn.close()
+    return annotations
 
-rows = c.fetchall()
+def export_annotations(annotations, output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+    existing_filenames = set()
 
-books = {}
-for text, created, content_id, title, author, annotation in rows:
-    book_key = f"{title}_{author}".replace(" ", "_").replace("/", "-")
-    if book_key not in books:
-        books[book_key] = {
-            "title": title,
-            "author": author,
-            "highlights": []
+    for (title, author, content_id, content_type), items in annotations.items():
+        raw_title = title or "Unbekannt"
+        raw_author = author or "Unbekannt"
+        safe_title = sanitize_filename(raw_title)
+        base_filename = safe_title
+        filename = f"{base_filename}.md"
+        counter = 2
+        is_duplicate = False
+
+        while filename in existing_filenames or os.path.exists(os.path.join(output_dir, filename)):
+            filename = f"{base_filename}_{counter}.md"
+            counter += 1
+            is_duplicate = True
+
+        existing_filenames.add(filename)
+        output_path = os.path.join(output_dir, filename)
+
+        quelle, statistik_verfügbar = detect_source_and_stats(content_id, content_type)
+
+        frontmatter = {
+            "title": raw_title,
+            "author": raw_author,
+            "genre": "",
+            "lesedauer": "",
+            "quelle": quelle,
+            "statistik_verfügbar": statistik_verfügbar,
         }
-    entry = {
-        "text": text,
-        "annotation": annotation,
-        "created": created,
-        "tag": "#highlight" if annotation is None else "#note"
-    }
-    books[book_key]["highlights"].append(entry)
 
-# Optional: Handschriftliche Notizen aus externem Tool holen
-if export_handwriting and handwriting_tool_path:
-    handwriting_dir = Path(handwriting_tool_path) / "output"
-    for file in handwriting_dir.glob("*.md"):
-        with open(file) as f:
-            content = f.read()
-        # Einfacher Heuristik-Parser für Titel und Autor aus Dateiname
-        name_parts = file.stem.split("_")
-        if len(name_parts) >= 2:
-            title = name_parts[0]
-            author = "_".join(name_parts[1:])
-            book_key = f"{title}_{author}".replace(" ", "_")
-            if book_key not in books:
-                books[book_key] = {
-                    "title": title,
-                    "author": author,
-                    "highlights": []
-                }
-            books[book_key]["highlights"].append({
-                "text": content.strip(),
-                "annotation": None,
-                "created": datetime.now().isoformat(),
-                "tag": "#handwriting"
-            })
+        if is_duplicate:
+            frontmatter["duplicate"] = True
 
-# Exportiere Markdown-Dateien
-for book_key, data in books.items():
-    filename = Path(output_dir) / f"{book_key}.md"
-    with open(filename, "w") as f:
-        f.write("---\n")
-        f.write(f"title: {data['title']}\n")
-        f.write(f"author: {data['author']}\n")
-        f.write(f"genre: Unknown\n")
-        f.write(f"read_duration: Unknown\n")
-        f.write("---\n\n")
-        for item in sorted(data["highlights"], key=lambda x: x["created"]):
-            f.write(f"- {item['tag']} {item['text'].strip()}\n")
-            if item["annotation"]:
-                f.write(f"  \> {item['annotation'].strip()}\n")
-            f.write("\n")
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write("---\n")
+            yaml.dump(frontmatter, f, allow_unicode=True, sort_keys=False)
+            f.write("---\n\n")
 
-# Speichere aktuellen Zeitstempel
-now_ts = datetime.now().isoformat()
-with open(last_export_file, "w") as f:
-    json.dump({"last_timestamp": now_ts}, f)
+            for item in items:
+                tags = []
+                if item["highlight"]:
+                    tags.append("#highlight")
+                if item["note"]:
+                    tags.append("#note")
+                tag_str = " ".join(tags)
 
-print("✅ Export abgeschlossen. Markdown-Dateien befinden sich im Output-Ordner.")
+                f.write(f"{tag_str}\n")
+                if item["highlight"]:
+                    f.write(f"> {item['highlight'].strip()}\n\n")
+                if item["note"]:
+                    f.write(f"{item['note'].strip()}\n\n")
+                if item["chapter_progress"] is not None:
+                    f.write(f"_Kapitelposition_: {round(item['chapter_progress'] * 100)}%\n")
+                f.write(f"_Erstellt am_: {item['date']}\n\n")
+                f.write("---\n\n")
+
+        print(f"✔ Exportiert: {filename}")
+
+def main():
+    args = parse_arguments()
+    annotations = fetch_annotations(args.db)
+    export_annotations(annotations, os.path.expanduser(args.output))
+
+if __name__ == "__main__":
+    main()
