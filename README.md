@@ -1,103 +1,154 @@
-# 📚 Kobo Lesestatistiken
+# 📚 Inksync
 
-Dieses Python-Skript erstellt Lesestatistiken aus einer oder mehreren KoboReader.sqlite-Dateien. Es aggregiert die Daten und bietet eine detaillierte Übersicht über deine Leseaktivitäten, einschließlich der wöchentlichen, monatlichen und jährlichen Statistiken sowie einer Auflistung der Top-Bücher nach Lesezeit.
+Ein Toolset zur Analyse und Archivierung deiner Kobo-Lesedaten – bestehend aus zwei Komponenten:
 
-## Funktionen
+1. **`inksync.py`**: Exportiert Highlights, Notizen und handschriftliche Annotationen aus der `KoboReader.sqlite` in Markdown-Dateien für Obsidian.
+2. **`reading_stats.py`**: Generiert Lesestatistiken (Zeit, Verteilung, Top-Bücher) ebenfalls auf Basis der `KoboReader.sqlite`.
 
-- **Daten aus mehreren KoboReader.sqlite-Dateien**: Das Skript kann mehrere Kobo-Datenbanken verarbeiten, um die Leseaktivitäten über verschiedene Geräte hinweg zu konsolidieren.
-- **Lesestatistiken pro Buch**: Zeigt die Lesezeit für jedes Buch, sortiert nach der gesamten Lesezeit.
-- **Übersicht über wöchentliche, monatliche und jährliche Lesezeiten**.
-- **Filteroption**: Du kannst nach einem Teilstring im Titel der Bücher filtern, um nur bestimmte Bücher zu analysieren.
+---
 
-## Installation
+## 🔧 Installation
 
-1. Stelle sicher, dass Python 3.7 oder höher installiert ist.
-2. Installiere die benötigten Python-Bibliotheken:
+1. **Repository klonen:**
 
 ```bash
-pip install sqlite3 argparse
+git clone https://github.com/dkuester/inksync.git
+cd inksync
 ```
 
-### Optional:
+2. **Virtuelle Umgebung erstellen (optional, empfohlen):**
 
-Pandas für erweiterte Datenverarbeitung (falls gewünscht):
-
-```
-pip install pandas
-```
-
-# Verwendung
-
-## Skript ausführen
-
-Um das Skript auszuführen, gib den folgenden Befehl in deinem Terminal ein:
-
-```
-python reading_stats.py --dbs /Pfad/zu/KoboReader1.sqlite /Pfad/zu/KoboReader2.sqlite --output reading_stats.md
+```bash
+python3 -m venv venv
+source venv/bin/activate  # Bei Windows: venv\Scripts\activate
 ```
 
-## Optionen:
+3. **Abhängigkeiten installieren:**
 
-`--dbs`: Eine oder mehrere KoboReader.sqlite-Dateien (mit Leerzeichen getrennt). Du kannst so viele Datenbanken angeben, wie du möchtest.  
-`--output`: Der Pfad zur Ausgabedatei (Standard: reading_stats.md).  
-`--filter`: Optionaler Filter für den Titel. Das Skript wird nur Bücher anzeigen, deren Titel den angegebenen Teilstring enthalten.  
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## 📘 `inksync.py`: Annotationsexport für Obsidian
+
+Dieses Tool extrahiert Annotationen (Textmarkierungen, Notizen, handschriftliche Notizen) aus der `KoboReader.sqlite` und exportiert sie in strukturierte Markdown-Dateien – ideal für ein Obsidian-Setup.
+
+### 🔹 Funktionen
+
+- Delta-Export: nur neue Annotationen werden verarbeitet
+- YAML-Frontmatter (Titel, Autor, Genre, Lesedauer)
+- Unterstützt Text- und handschriftliche Notizen
+- Konfigurierbarer Exportpfad
+- Dateinamenschema: `titel_autor.md`
+- Markdown-Format kompatibel mit Dataview
+
+### 🔹 Ausführung
+
+```bash
+python inksync.py
+```
+
+### 🔹 Konfiguration
+
+Konfiguriert wird das Tool über die Datei `config.json`, z. B.:
+
+```json
+{
+  "input_path": "~/inksync/input/KoboReader.sqlite",
+  "output_path": "~/inksync/output/",
+  "export_handwritten": true
+}
+```
+
+---
+
+## 📊 `reading_stats.py`: Lesestatistiken für Obsidian
+
+Dieses Tool erstellt aus der `KoboReader.sqlite` eine Markdown-Datei mit Leseübersichten, inklusive:
+
+- Gesamtlesezeit
+- Wöchentliche, monatliche und jährliche Lesezeit
+- Top-Bücher nach Lesezeit
+- Lesestatistiken pro Buch
+
+Ideal für ein Obsidian-Dashboard.
+
+### 🔹 Ausführung
+
+```bash
+python reading_stats.py
+```
+
+### 🔹 Optionen
+
+- `--db`: Pfad zur `KoboReader.sqlite` (optional)
+- `--output`: Zielpfad für die Markdown-Datei (optional)
+- `--filter`: Optionaler Titel-Filter (Teilstring)
 
 Beispiel:
 
-```
-python reading_stats.py --dbs ~/KoboReader1.sqlite ~/KoboReader2.sqlite --output ~/Desktop/reading_stats.md --filter "Harry Potter"
-```
-
-## Ausgabe
-
-Das Skript erzeugt eine Markdown-Datei mit folgendem Inhalt:
-
-- **Gesamtlesezeit**: Zeigt die gesamte Lesezeit aller Bücher zusammen an.
-- **Wöchentliche Übersicht**: Lesezeit pro Woche.
-- **Monatliche Übersicht**: Lesezeit pro Monat.
-- **Jährliche Übersicht**: Lesezeit pro Jahr.
-- **Top 10 Bücher nach Lesezeit**: Eine Liste der 10 Bücher mit der größten Lesezeit.
-- **Lesestatistiken pro Buch**: Eine detaillierte Liste der Lesezeit pro Buch mit Datum und Stunden.
-
-Beispiel für die Ausgabe:
-
-```
-# 📚 Lesestatistiken
-
-**Gesamtlesezeit**: **150.2 Stunden**
-
-### Wöchentliche Übersicht
-
-| Zeitraum  | Stunden |
-|-----------|---------|
-| 2025-KW01 | 5.2     |
-| 2025-KW02 | 6.8     |
-
-### Monatliche Übersicht
-
-| Zeitraum  | Stunden |
-|-----------|---------|
-| 2025-01   | 20.3    |
-| 2025-02   | 18.5    |
-
-### Jährliche Übersicht
-
-| Zeitraum | Stunden |
-|----------|---------|
-| 2025     | 150.2   |
-
-### Top 10 Bücher nach Lesezeit
-
-| Titel              | Stunden |
-|--------------------|---------|
-| Harry Potter       | 12.5    |
-| Der Hobbit         | 8.9     |
-
-### Lesestatistiken pro Buch
-
-| Titel            | Datum       | Stunden |
-|------------------|-------------|---------|
-| Harry Potter     | 2025-01-01  | 1.5     |
-| Der Hobbit       | 2025-01-03  | 2.0     |
+```bash
+python reading_stats.py --db ~/Downloads/KoboReader.sqlite --filter "Murakami"
 ```
 
+---
+
+## 🔁 Mehrere Geräte unterstützen
+
+Falls du mehrere Kobo-Geräte nutzt, kannst du alle `KoboReader.sqlite`-Dateien einzeln exportieren und zusammenführen:
+
+```bash
+cat stats1.md stats2.md > kombi_stats.md
+```
+
+Eine zukünftige Version von `reading_stats.py` könnte auch mehrere Datenbanken einlesen.
+
+---
+
+## 🗃️ Verzeichnisstruktur (Empfehlung)
+
+```
+inksync/
+├── input/
+│   └── KoboReader.sqlite
+├── output/
+│   └── *.md              # Exporte für Obsidian
+├── inksync.py
+├── reading_stats.py
+├── config.json
+├── requirements.txt
+└── README.md
+```
+
+---
+
+## ✅ Anforderungen
+
+- Python 3.8+
+- Abhängigkeiten: `pandas`, `python-dateutil` (siehe `requirements.txt`)
+
+---
+
+## 📂 Integration mit Obsidian
+
+Die erzeugten Markdown-Dateien sind direkt in Obsidian nutzbar, z. B. mit Plugins wie:
+
+- [Dataview](https://github.com/blacksmithgu/obsidian-dataview)
+- [Obsidian Charts](https://github.com/zgrosser/obsidian-charts)
+
+---
+
+## ✨ Roadmap (Ideen)
+
+- Unterstützung mehrerer Datenbanken in `reading_stats.py`
+- Automatischer Sync mit Obsidian-Vault
+- Visualisierung von Leseverläufen
+- Statistiken nach Genre/Autor
+
+---
+
+## 📝 Lizenz
+
+Lizenz: [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/legalcode) – freie Nutzung für nicht-kommerzielle Zwecke mit Namensnennung.
