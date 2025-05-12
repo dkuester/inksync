@@ -38,9 +38,9 @@ python reading_stats.py --dbs /Pfad/zu/KoboReader1.sqlite /Pfad/zu/KoboReader2.s
 
 ## Optionen:
 
-`--dbs`: Eine oder mehrere KoboReader.sqlite-Dateien (mit Leerzeichen getrennt). Du kannst so viele Datenbanken angeben, wie du möchtest.
-`--output`: Der Pfad zur Ausgabedatei (Standard: reading_stats.md).
-`--filter`: Optionaler Filter für den Titel. Das Skript wird nur Bücher anzeigen, deren Titel den angegebenen Teilstring enthalten.
+`--dbs`: Eine oder mehrere KoboReader.sqlite-Dateien (mit Leerzeichen getrennt). Du kannst so viele Datenbanken angeben, wie du möchtest.  
+`--output`: Der Pfad zur Ausgabedatei (Standard: reading_stats.md).  
+`--filter`: Optionaler Filter für den Titel. Das Skript wird nur Bücher anzeigen, deren Titel den angegebenen Teilstring enthalten.  
 
 Beispiel:
 
