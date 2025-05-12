@@ -68,23 +68,23 @@ Beispiel für die Ausgabe:
 
 ### Wöchentliche Übersicht
 
-| Zeitraum | Stunden |
-|----------|---------|
+| Zeitraum  | Stunden |
+|-----------|---------|
 | 2025-KW01 | 5.2     |
 | 2025-KW02 | 6.8     |
 
 ### Monatliche Übersicht
 
-| Zeitraum | Stunden |
-|----------|---------|
-| 2025-01   | 20.3     |
-| 2025-02   | 18.5     |
+| Zeitraum  | Stunden |
+|-----------|---------|
+| 2025-01   | 20.3    |
+| 2025-02   | 18.5    |
 
 ### Jährliche Übersicht
 
 | Zeitraum | Stunden |
 |----------|---------|
-| 2025     | 150.2    |
+| 2025     | 150.2   |
 
 ### Top 10 Bücher nach Lesezeit
 
