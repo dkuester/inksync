@@ -16,6 +16,7 @@ Dieses Python-Skript erstellt Lesestatistiken aus einer oder mehreren KoboReader
 
 ```bash
 pip install sqlite3 argparse
+```
 
 ### Optional:
 
