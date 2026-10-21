@@ -12,9 +12,17 @@ derive from them.
 |---|---|---|---|---|
 | [`kobo-clarabw-4.46.sql`](db/kobo-clarabw-4.46.sql) | Kobo Clara BW | 4.46.23836 | 176 | Book A, Book B (kepub) |
 | [`tolino-shine5-5.18.sql`](db/tolino-shine5-5.18.sql) | Tolino Shine 5 | 5.18.264769 | 220 | Book A, Book C (plain EPUB) |
+| [`kobo-clarabw-4.46-placeholder-books.sql`](db/kobo-clarabw-4.46-placeholder-books.sql) | Kobo Clara BW | 4.46.23836 | 176 | the three EPUB fixtures below |
+| [`tolino-shine5-5.18-placeholder-books.sql`](db/tolino-shine5-5.18-placeholder-books.sql) | Tolino Shine 5 | 5.18.264769 | 220 | the three EPUB fixtures below |
 
 Book A is the same title on both devices (as two different files: a kepub on
 the Kobo, an EPUB on the Tolino), so cross-device tests can use it.
+
+The `-placeholder-books` fixtures come from the same devices after they were
+emptied and loaded with the files from [`epub/`](epub) (byte-identical), then
+opened at known places. Their positions match the files in the repository and
+the KOReader state in [`koreader/`](#koreader-state-koreader); see the table
+there.
 
 Each file is SQL text: the schema, then one `INSERT` per row, sorted by
 book, row type, `VolumeIndex` and `ContentID`. Load it with
@@ -83,6 +91,31 @@ zeroed in file names and ids, so Book C's OPF is `OPS/0000000000000.opf`
 and its spine ids are `part_N_000000000000000000`. Links to the outside
 become `#`.
 
+## KOReader state (`koreader/`)
+
+`metadata.epub.lua` from KOReader 2026.07 on macOS (`cre_dom_version`
+20260812), one per EPUB fixture, opened from the identical files. Only
+`doc_path` was changed (`/home/reader/books/…`); the files hold no other
+personal data. Each has the KOReader partial MD5 of the file
+(`partial_md5_checksum`) and the position as XPointer and EPUB CFI.
+
+| File | Kobo 4.46 | Tolino 5.18 | KOReader `last_xpointer` |
+|---|---|---|---|
+| `book-a.kepub.epub` | `xhtml-0-81.xhtml#kobo.1.1` | `xhtml-0-7.xhtml#point(/1/2/1/1:0)` | `/body[1]/DocFragment[82]/body[1]/div[1]/div[1]/div[1]/span[1]/text()[1].0` |
+| `book-a.epub` | `xhtml-0-7.xhtml` (no fragment) | `xhtml-0-81.xhtml#point(/1/2/1/1:0)` | `/body[1]/DocFragment[82]/body[1]/div[1]/text()[1].0` |
+| `book-c.epub` | `front02.html#point(/1/2/1/1:0)` | `bookwire_advertisement5.xhtml#point(/1/4/16/1:688)` | `/body[1]/DocFragment[40]/body[1]/div[2]/text()[1].0` |
+
+Same place in two of them:
+
+- Kobo `#kobo.1.1` ↔ KOReader on the kepub: `span#kobo.1.1`, the start of the
+  chapter heading in `xhtml-0-81.xhtml`. KOReader keeps the kepub wrappers
+  (`div#book-columns`, `div#book-inner`) and the `koboSpan` spans.
+- Tolino `point(/1/2/1/1:0)` ↔ KOReader on the plain EPUB: the same heading,
+  `div#aid_191`, offset 0.
+- Book C on Tolino and KOReader: both on the last page, but each stores the
+  start of its own page, so the nodes differ (the teaser paragraph at
+  character 688 vs. the following `div`).
+
 ## Regenerating
 
 The scripts need the original files, which stay on the owner's machine:
@@ -102,6 +135,10 @@ tools/make_epub_fixture.py <book c> tests/fixtures/epub/book-c.epub --name c \
   --keep OPS/bookwire/bookwire_advertisement5.xhtml \
   --position 'OPS/bookwire/bookwire_advertisement5.xhtml#point(/1/4/16/1:356)'
 ```
+
+The `-placeholder-books` fixtures are made the same way from the later
+database copies, with `--names a,a,c`; the KOReader files are copied from
+`<book>.sdr/` with `doc_path` replaced.
 
 `--names` assigns the letters in the order of the original `ContentID`s. The
 output is deterministic: the same input gives byte-identical files.
