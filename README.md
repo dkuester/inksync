@@ -52,6 +52,19 @@ cargo build --release
 The binary is `target/release/nickelinksync`. It only prints its version and
 help so far.
 
+For the device (Kobo and Tolino, 32-bit ARM), build a statically linked binary
+with [cargo-zigbuild](https://github.com/rust-cross/cargo-zigbuild):
+
+```sh
+rustup target add armv7-unknown-linux-musleabihf
+pip install cargo-zigbuild   # also installs Zig
+just build-device
+```
+
+The binary is `target/armv7-unknown-linux-musleabihf/release/nickelinksync`.
+`just check-device` also runs `--version` in an ARM container (needs Docker).
+Each CI run uploads the same file as the artifact `nickelinksync-armv7-musleabihf`.
+
 ## Support
 
 | | |

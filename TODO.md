@@ -26,9 +26,13 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
   - [x] **ich:** CI-Job `check` um `cargo fmt --check`, `cargo clippy` und
     `cargo test` erweitern; die beiden bestehenden Prüfungen bleiben, der
     Jobname bleibt `check`.
-- [ ] **G3 ARM-Build**
-  - [ ] **ich:** Cross-Build für `arm-kobo-linux-gnueabihf-` (Docker-Image
-    `strayrose/nickeltc`) als zusätzlicher CI-Schritt.
+- [~] **G3 ARM-Build**
+  - [x] **ich:** Statisch gelinktes Programm für
+    `armv7-unknown-linux-musleabihf`, gebaut mit `cargo-zigbuild`
+    (`just build-device`). Es hängt nicht von der glibc des Geräts ab und
+    läuft daher auf Firmware 4.x und 5.x; `strayrose/nickeltc` bleibt für das
+    Plugin (N2/N4). Der CI-Job `check` baut es, prüft es mit `file` und
+    `qemu-arm` und lädt es als Artefakt `nickelinksync-armv7-musleabihf` hoch.
   - [ ] **du:** Testlauf auf einem Gerät: Programm nach `.adds/NickelInkSync/`
     kopieren und `--version` über NickelMenu oder telnet aufrufen.
 - [ ] **G4 Testdaten**
