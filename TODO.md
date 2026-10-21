@@ -53,8 +53,12 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
   - [ ] **ich:** Seitengeladene Bücher auflisten (`ContentType = 6`,
     `file:///mnt/onboard/`), Position aus `ChapterIDBookmarked`,
     `___PercentRead`, `DateLastRead` lesen.
-  - [ ] **ich:** Kapitel über `BookID` + `VolumeIndex` finden, nicht über das
-    Format der Kapitel-`ContentID` (Kobo: Pfad, Tolino: UUID).
+  - [ ] **ich:** Kapitel über die OPF-Spine und den `href` aus
+    `ChapterIDBookmarked` finden (relativ zur EPUB-Wurzel), nicht über das
+    Format der Kapitel-`ContentID` (Kobo: Pfad, Tolino: UUID). `BookID` +
+    `VolumeIndex` nur auf dem Kobo als Gegenprobe (`ContentType = 9` =
+    Spine-Index); auf dem Tolino sind die Kapitelzeilen ToC-Einträge,
+    `VolumeIndex` ist dort der ToC-Index (siehe `SCOPE.md`).
   - [ ] **ich:** Firmware aus `.kobo/version` lesen (drittes Feld), Tolino an der
     Datenbank erkennen (`tolino_*`-Tabellen).
 - [ ] **K2 Prüfsumme**
@@ -68,8 +72,10 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     `href#point(...)` (EPUB).
   - [ ] **ich:** OPF-Spine lesen, `href` → `DocFragment[n]`, Prozentwert als
     Rückfallebene.
-  - [ ] **ich:** Tests mit Heat 2 (Kobo: Kapitel 81, Tolino: Kapitel 81) und
-    Titan 2.
+  - [ ] **ich:** Tests mit den Fixtures aus G4: Heat 2 (Kobo und Tolino:
+    `xhtml-0-81.xhtml` = Spine-Index 81 → `DocFragment[82]`; auf dem Tolino
+    hat die Kapitelzeile `VolumeIndex` 80) und Titan 2 (Spine-Index 39, ohne
+    ToC-Eintrag und ohne Kapitelzeile).
 - [ ] **K4 Position genau** · `[!]` blockiert, bis die `metadata.epub.lua` aus K2 da ist
   - [ ] **ich:** Aus der Datei ablesen, welchen DOM-Pfad KOReader erwartet
     (Leerraum, `koboSpan`-Elemente).

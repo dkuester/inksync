@@ -42,8 +42,10 @@ L = a week or more, including verification.
 - **Read-only device database layer** (S–M): open `KoboReader.sqlite`
   read-only, list sideloaded books (`ContentType = 6`, `file:///mnt/onboard/`),
   read `ChapterIDBookmarked`, `___PercentRead`, `DateLastRead`; resolve
-  chapters through `BookID` + `VolumeIndex`, not the chapter `ContentID`
-  format. Fixtures: the Clara BW and Shine 5 dumps, trimmed and anonymized.
+  chapters through the OPF spine and the href in `ChapterIDBookmarked`, not
+  the chapter `ContentID` format. `BookID` + `VolumeIndex` only as a
+  cross-check on the Kobo: Tolino chapter rows are ToC entries, so their
+  `VolumeIndex` is a ToC index, not a spine index. Fixtures: the Clara BW and Shine 5 dumps, trimmed and anonymized.
 - **Document hash** (S): KOReader partial MD5 for a book file, with a test
   against a hash that KOReader itself reports for the same file.
 - **Position translation, chapter level** (M): `href#kobo.N.M` and
