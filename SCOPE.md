@@ -124,16 +124,23 @@ Reference devices, both read from a copy of the database, never written:
 |---|---|---|
 | Book row | `ContentType = 6`, `ContentID = file:///mnt/onboard/<path>` | same |
 | MimeType | `application/x-kobo-epub+zip` (kepub) | `application/epub+zip` (plain EPUB) |
-| Chapter rows | `ContentType = 9`, `ContentID = /mnt/onboard/<path>!<opf dir>!<href>` | `ContentType = 9`, `ContentID` is a **UUID** |
-| Chapter → book | `BookID` = book `ContentID`, `VolumeIndex` = spine index | same |
+| Chapter rows | `ContentType = 9`, one per spine item, `ContentID = /mnt/onboard/<path>!<opf dir>!<href>`; plus `ContentType = 899`, one per ToC entry | `ContentType = 9`, one per **ToC entry** (no spine rows), `ContentID` is a **UUID**, target in `adobe_location` |
+| Chapter → book | `BookID` = book `ContentID`, `VolumeIndex` = spine index (type 9) | `BookID` = book `ContentID`, `VolumeIndex` = **ToC index**, not spine index |
 | Position field | `ChapterIDBookmarked`, `___PercentRead` (integer percent) | same |
 | Position format | `<href>#kobo.N.M` (kepub span ID) | `<href>#point(/1/2/1/1:0)` (Adobe point) |
 | `adobe_location` | empty | empty, even for plain EPUB |
 | Extra tables | — | `tolino_*` (cloud, DRM, Skoobe); `BookReader.sqlite` is encrypted and not needed |
 
-`<href>` is relative to the OPF directory. Never rely on the chapter-row
-`ContentID` format: it differs between firmware lines. Find a chapter through
-`BookID` + `VolumeIndex` or through the OPF spine.
+In the chapter-row `ContentID`, `<href>` is relative to the OPF directory;
+the chapter path in `ChapterIDBookmarked` and `adobe_location` is relative to
+the EPUB root (`OEBPS/xhtml/…`). Never rely on the chapter-row `ContentID`
+format: it differs between firmware lines. On the Kobo, `BookID` +
+`VolumeIndex` of the `ContentType = 9` rows gives the spine item. On the
+Tolino it does not: the rows are ToC entries (`NumShortcovers` counts them),
+so in *Heat 2* `xhtml-0-81.xhtml` (spine index 81) has `VolumeIndex` 80, and
+the *Titan 2* position lies in a spine item without a ToC entry and so
+without a row. Find the chapter through the OPF spine there. Both cases are
+in the [test fixtures](tests/fixtures/README.md).
 
 **Kepub span → XPointer** (Kobo): `OEBPS/xhtml/xhtml-0-81.xhtml#kobo.1.172`
 → spine index 81 → KOReader `DocFragment[82]`; span `id="kobo.1.172"` exists
