@@ -42,7 +42,7 @@ jobs:
       # Statically linked musl binary: independent of the device glibc, so one
       # file runs on Kobo firmware 4.x and Tolino firmware 5.x.
       - name: Install cargo-zigbuild and Zig
-        run: pip install cargo-zigbuild==0.24.0 ziglang==0.17.0
+        run: pip install cargo-zigbuild==0.23.4 ziglang==0.17.0
       - name: Device build (armv7-unknown-linux-musleabihf)
         run: cargo zigbuild --release --target armv7-unknown-linux-musleabihf
       - name: Device binary is a static 32-bit ARM ELF and runs under QEMU
