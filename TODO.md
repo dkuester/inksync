@@ -36,15 +36,15 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
   - [x] **du:** Testlauf auf Clara BW (4.46) und Shine 5 (5.18): Programm aus
     dem CI-Artefakt nach `.adds/NickelInkSync/` kopiert, `--version` gibt
     `nickelinksync 0.1.0` aus.
-- [~] **G4 Testdaten**
+- [x] **G4 Testdaten** · PR #9
   - [x] **ich:** Skript, das aus einer `KoboReader.sqlite` nur die nötigen
     Tabellen und Zeilen übernimmt (seitengeladene Bücher und ihre Kapitel) und
     Titel, Autoren und Pfade ersetzt (`tools/make_db_fixture.py`), dazu
     Platzhalter-EPUBs mit der Struktur der drei Bücher
     (`tools/make_epub_fixture.py`) und ein Test, der die Fixtures lädt. Siehe
     [`tests/fixtures/README.md`](tests/fixtures/README.md).
-  - [ ] **du:** Gekürzte Daten vom Clara BW und Shine 5 durchsehen, bevor sie ins
-    Repo kommen. Es geht um deine Lesedaten.
+  - [x] **du:** Gekürzte Daten vom Clara BW und Shine 5 durchgesehen und
+    freigegeben, bevor sie ins Repo kamen. Es ging um deine Lesedaten.
 
 ## Kern
 
