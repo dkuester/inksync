@@ -14,6 +14,8 @@ L = a week or more, including verification.
 - [x] Scope fixed: Rust core + CLI (desktop and on-device) plus a NickelHook plugin
 - [x] Project renamed to NickelInkSync (GitHub); Codeberg stays as a read-only archive
 - [x] Legacy Obsidian export (`inksync.py`, `reading_stats.py`) and its CI removed
+- [x] Stale `migrate-to-calibre-plugin` branch deleted (still in the Codeberg archive)
+- [x] Placeholder CI job `check` (no device databases, local Markdown links) for the `main` ruleset
 - [x] Book identity for the first version: same file on every device, KOReader binary hash
 - [x] Kobo 4.46 database checked (Clara BW): kepub position format, chapter rows,
       spine index → `DocFragment` mapping
@@ -28,9 +30,7 @@ L = a week or more, including verification.
   BookOrbit's position converter is ever ported, the project has to be AGPL-3.0.
 - **Rust skeleton + CI** (S): crate, `clippy`/`rustfmt`, host tests, a
   cross-build job for `arm-kobo-linux-gnueabihf-`. Why: everything below
-  builds on it; the repository has no CI since the legacy code was removed.
-- **Close `migrate-to-calibre-plugin`** (S): delete the stale calibre-plugin
-  branch on GitHub. Why: it belongs to the removed Obsidian export.
+  builds on it. Keep the job name `check`, which the `main` ruleset requires.
 
 ## High priority
 
