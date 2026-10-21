@@ -1,0 +1,29 @@
+name: CI
+
+# Placeholder until the Rust crate lands: the "Protect main" ruleset requires a
+# status check named "check", so the Rust CI must keep this job name.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No device databases committed
+        run: |
+          if git ls-files | grep -E '\.(sqlite|db)(-wal|-shm|-journal)?$'; then
+            echo "::error::Device database committed. Test fixtures must be trimmed and anonymized first."
+            exit 1
+          fi
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Local Markdown links resolve
+        run: python .github/scripts/check_md_links.py
