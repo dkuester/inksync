@@ -25,24 +25,17 @@ L = a week or more, including verification.
 - [x] Rust skeleton: crate `nickelinksync` (library + CLI with placeholder
       `status`/`push`/`pull`), `rustfmt`, `clippy`, host tests; CI job `check`
       runs them
+- [x] ARM device build: one statically linked `armv7-unknown-linux-musleabihf`
+      binary (`cargo-zigbuild`, `just build-device`) for Kobo 4.x and Tolino
+      5.x, built and checked under QEMU in CI job `check`, uploaded as an
+      artifact; `--version` verified on Clara BW (4.46) and Shine 5 (5.18)
 
 ## Quick wins
 
-- **Rust skeleton + CI** (S): crate, `clippy`/`rustfmt`, host tests, the
-  ARM cross-build below. Why: everything below
-  builds on it. Keep the job name `check`, which the `main` ruleset requires.
 - **License** (S): replace CC BY-NC 4.0 with a software license. Why: CC
   discourages its licenses for code, and BY-NC is not GPL-compatible, which
   blocks reuse of KOReader code and redistribution alongside it. If code from
   BookOrbit's position converter is ever ported, the project has to be AGPL-3.0.
-- **ARM cross-build** (S): build the CLI for the device as a statically
-  linked `armv7-unknown-linux-musleabihf` binary with `cargo-zigbuild`
-  (`just build-device`). Static musl does not depend on the device glibc, so
-  one file runs on Kobo firmware 4.x and Tolino firmware 5.x; the
-  `strayrose/nickeltc` toolchain is kept for the C++ plugin. The CI job
-  `check` builds it, checks it under QEMU and uploads it as an artifact.
-  Why: the on-device CLI and the plugin need it. Open: run `--version` on a
-  Clara BW (4.46) and a Shine 5 (5.18).
 
 ## High priority
 
