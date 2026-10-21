@@ -91,6 +91,38 @@ zeroed in file names and ids, so Book C's OPF is `OPS/0000000000000.opf`
 and its spine ids are `part_N_000000000000000000`. Links to the outside
 become `#`.
 
+## Probe book (`epub/book-p*.epub`)
+
+Book P is synthetic, made by [`make_probe_epub.py`](../../tools/make_probe_epub.py)
+without any input, as a plain EPUB ([`book-p.epub`](epub/book-p.epub)) and a
+kepub with Kobo spans ([`book-p.kepub.epub`](epub/book-p.kepub.epub)). Every
+word is unique (`p<paragraph>w<word>`), so the same word can be highlighted
+on every device. The probe chapter `OEBPS/text/probe.xhtml` (spine index 1)
+puts one of the cases that can shift character offsets in front of each
+target word.
+
+**To test:** put both files on the Kobo, `book-p.epub` on the Tolino, and both
+into KOReader. In each, highlight the eight target words below, one
+highlight per word, starting exactly at the word. Then copy
+`.kobo/KoboReader.sqlite` from both devices and the `.sdr` folders from
+KOReader. `make_db_fixture.py --bookmarks` keeps the highlights of the fixture
+books; highlights in any other book stop it.
+
+Where each format should put the start of the word. The two KOReader columns
+are a hypothesis (indices counted over the source DOM), which the
+highlights confirm or refute:
+
+| Word | After | EPUB: Adobe point | kepub: span, offset | KOReader EPUB (naive) | KOReader kepub (naive) |
+|---|---|---|---|---|---|
+| `p1w08` | plain text, mid-paragraph | `point(/1/4/4/1:42)` | `kobo.2.1`, 42 | `/body[1]/DocFragment[2]/body[1]/p[1]/text()[1].42` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[1]/span[1]/text()[1].42` |
+| `p2w04` | two no-break spaces | `point(/1/4/6/1:18)` | `kobo.3.1`, 18 | `/body[1]/DocFragment[2]/body[1]/p[2]/text()[1].18` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[2]/span[1]/text()[1].18` |
+| `p3w03` | the entity `&amp;` | `point(/1/4/8/1:14)` | `kobo.4.1`, 14 | `/body[1]/DocFragment[2]/body[1]/p[3]/text()[1].14` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[3]/span[1]/text()[1].14` |
+| `p4w03` | a word with a soft hyphen | `point(/1/4/10/1:13)` | `kobo.5.1`, 13 | `/body[1]/DocFragment[2]/body[1]/p[4]/text()[1].13` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[4]/span[1]/text()[1].13` |
+| `p5w03` | inside `<em>`, second word | `point(/1/4/12/2/1:6)` | `kobo.6.2`, 6 | `/body[1]/DocFragment[2]/body[1]/p[5]/em[1]/text()[1].6` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[5]/em[1]/span[1]/text()[1].6` |
+| `p5w04` | text after `</em>` | `point(/1/4/12/3:1)` | `kobo.6.3`, 1 | `/body[1]/DocFragment[2]/body[1]/p[5]/text()[2].1` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[5]/span[2]/text()[1].1` |
+| `p6w03` | a line break and indentation | `point(/1/4/14/1:16)` | `kobo.7.1`, 16 | `/body[1]/DocFragment[2]/body[1]/p[6]/text()[1].16` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[6]/span[1]/text()[1].16` |
+| `p7w03` | a comment | `point(/1/4/16/3:7)` | `kobo.8.2`, 7 | `/body[1]/DocFragment[2]/body[1]/p[7]/text()[2].7` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[7]/span[2]/text()[1].7` |
+
 ## KOReader state (`koreader/`)
 
 `metadata.epub.lua` from KOReader 2026.07 on macOS (`cre_dom_version`

@@ -201,6 +201,7 @@ exactly the case the later manual mapping is for.
 ## Test data still needed
 
 - A device position and a KOReader position at the same spot inside a
-  paragraph (offset > 0), for open question 2; paging alone does not give
-  one, so this needs a computed XPointer opened in KOReader
+  paragraph (offset > 0), for open question 2. Paging alone does not give
+  one; highlights of the same words in the probe book Book P do (see the
+  [test fixtures](tests/fixtures/README.md))
 - Optional: a database from a Shine Color or Vision Color

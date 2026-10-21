@@ -83,6 +83,12 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     mitten im Text.
   - [ ] **ich:** Kobo-Span → XPointer und Adobe-Point → XPointer, jeweils auch
     rückwärts.
+  - [ ] **du:** Book P (`tests/fixtures/epub/book-p*.epub`) auf Kobo, Tolino
+    und in KOReader laden und die acht Zielwörter markieren (Liste in
+    `tests/fixtures/README.md`), dann beide Datenbanken und die `.sdr`-Ordner
+    kopieren.
+  - [ ] **ich:** Markierungen auslesen (`make_db_fixture.py --bookmarks`) und
+    mit den erwarteten Offsets vergleichen.
   - [ ] **du:** Gegenprobe: Ein von uns berechneter XPointer öffnet in KOReader
     die richtige Stelle.
 - [ ] **K5 KOSync-Client**
