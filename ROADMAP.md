@@ -6,7 +6,8 @@ and KOReader through a KOSync server. Scope and architecture:
 
 Items are grouped by effort vs. value: **quick wins** (ship fast), **high
 priority** (highest value, worth the effort), and **low priority (optional)**
-(nice-to-have, safe to defer). Effort: S = an afternoon, M = a few days,
+(nice-to-have, safe to defer); **long term** collects feasibility checks
+for other device families, beyond the current scope. Effort: S = an afternoon, M = a few days,
 L = a week or more, including verification.
 
 ## Recently completed
@@ -92,3 +93,24 @@ L = a week or more, including verification.
   <device>, <time>", plus a manual "sync now" action.
 - **Multi-device conflict view on the desktop *(optional)*** (S): `status`
   lists every device's position for a book side by side.
+
+## Long term
+
+Feasibility checks only: each ends in a yes/no and a sketch, not in code.
+Both families are outside the current scope (Nickel devices only, see
+[SCOPE.md](SCOPE.md)).
+
+- **Kindle ↔ KOSync: feasibility check** (M): can the reading progress of a
+  sideloaded book in the stock Kindle reader be read (and written back) and
+  mapped to a KOReader position? Why: Kindle is the most common e-reader.
+  To check: where the stock reader stores the position of a sideloaded book
+  and whether that store is reachable over USB, which position format it
+  uses, and whether the book identity can match KOReader's hash (Kindle
+  formats such as KFX are not the EPUB KOReader opens). Blocker: a Kindle
+  with sideloaded books to read from.
+- **PocketBook ↔ KOSync: feasibility check** (M): same question for the
+  stock PocketBook reader. Why: PocketBook readers are common in Europe and
+  open plain EPUBs, so the same file can be used on every device. To check:
+  where the reader stores positions (reportedly an SQLite database on the
+  device), in which format, whether it is reachable over USB, and whether
+  writing it back is picked up. Blocker: a PocketBook device.
