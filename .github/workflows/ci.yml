@@ -1,0 +1,29 @@
+name: CI
+
+# Smoke check until the project gets real tests: dependencies install, both
+# scripts compile and start. Pushes to main and pull requests only.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Compile
+        run: python -m py_compile inksync.py reading_stats.py
+      - name: Start both tools
+        run: |
+          python inksync.py --help
+          python reading_stats.py --help
