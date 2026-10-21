@@ -1,154 +1,131 @@
-# 📚 Inksync
+<div align="center">
 
-Ein Toolset zur Analyse und Archivierung deiner Kobo-Lesedaten – bestehend aus zwei Komponenten:
+# inksync
 
-1. **`inksync.py`**: Exportiert Highlights, Notizen und handschriftliche Annotationen aus der `KoboReader.sqlite` in Markdown-Dateien für Obsidian.
-2. **`reading_stats.py`**: Generiert Lesestatistiken (Zeit, Verteilung, Top-Bücher) ebenfalls auf Basis der `KoboReader.sqlite`.
+**Turn your Kobo's highlights, notes and reading time into Markdown for Obsidian.**
+
+[![Python](https://img.shields.io/badge/python-3.8%2B-informational)](#requirements)
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](LICENSE)
+
+[Quick start](#quick-start) · [Annotation export](#annotation-export-inksyncpy) · [Reading statistics](#reading-statistics-reading_statspy) · [Roadmap](#roadmap) · [Deutsch](README.de.md)
+
+</div>
+
+inksync is a pair of command-line tools that read the database of a Kobo
+e-reader (`KoboReader.sqlite`) and write Markdown files you can drop into an
+[Obsidian](https://obsidian.md) vault: one file per book with your highlights
+and notes, and one overview of your reading time.
+
+> [!NOTE]
+> **Status:** early version, being reworked. A calibre plugin is in progress on
+> the [`migrate-to-calibre-plugin`](https://github.com/dkuester/inksync/tree/migrate-to-calibre-plugin)
+> branch. The generated Markdown is currently in German.
 
 ---
 
-## 🔧 Installation
+## Features
 
-1. **Repository klonen:**
+| Tool | What it does |
+|---|---|
+| **`inksync.py`** | Exports highlights and notes, one Markdown file per book, with YAML front matter (title, author, source such as Kobo Store, calibre or Onleihe) and tags `#highlight` / `#note` for Dataview. |
+| **`reading_stats.py`** | Builds one Markdown file with total reading time, time per week, month and year, the top 10 books by reading time and a per-book table. Reads several databases at once, e.g. from more than one Kobo. |
+
+Both tools only read the database; they never change it.
+
+## Requirements
+
+- Python 3.8 or newer
+- A copy of `KoboReader.sqlite` from the hidden `.kobo/` folder of your Kobo
+  (connect it over USB)
+
+## Quick start
 
 ```bash
 git clone https://github.com/dkuester/inksync.git
 cd inksync
-```
-
-2. **Virtuelle Umgebung erstellen (optional, empfohlen):**
-
-```bash
-python3 -m venv venv
-source venv/bin/activate  # Bei Windows: venv\Scripts\activate
-```
-
-3. **Abhängigkeiten installieren:**
-
-```bash
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+mkdir -p input && cp /path/to/KOBOeReader/.kobo/KoboReader.sqlite input/
 ```
 
----
-
-## 📘 `inksync.py`: Annotationsexport für Obsidian
-
-Dieses Tool extrahiert Annotationen (Textmarkierungen, Notizen, handschriftliche Notizen) aus der `KoboReader.sqlite` und exportiert sie in strukturierte Markdown-Dateien – ideal für ein Obsidian-Setup.
-
-### 🔹 Funktionen
-
-- Delta-Export: nur neue Annotationen werden verarbeitet
-- YAML-Frontmatter (Titel, Autor, Genre, Lesedauer)
-- Unterstützt Text- und handschriftliche Notizen
-- Konfigurierbarer Exportpfad
-- Dateinamenschema: `titel_autor.md`
-- Markdown-Format kompatibel mit Dataview
-
-### 🔹 Ausführung
+## Annotation export (`inksync.py`)
 
 ```bash
-python inksync.py
+python inksync.py --db input/KoboReader.sqlite --output output/
 ```
 
-### 🔹 Konfiguration
+| Option | Default | Meaning |
+|---|---|---|
+| `--db` | `~/inksync/input/KoboReader.sqlite` | Path to the Kobo database |
+| `--output` | `~/inksync/output` | Folder for the Markdown files |
 
-Konfiguriert wird das Tool über die Datei `config.json`, z. B.:
+Each book becomes `<title>.md`. If a file with that name already exists, the
+new one gets a numbered suffix (`<title>_2.md`) and `duplicate: true` in its
+front matter, so earlier exports are never overwritten.
 
-```json
-{
-  "input_path": "~/inksync/input/KoboReader.sqlite",
-  "output_path": "~/inksync/output/",
-  "export_handwritten": true
-}
-```
+<details>
+<summary><strong>Example output</strong></summary>
 
+```markdown
+---
+title: Kafka am Strand
+author: Haruki Murakami
+genre: ''
+lesedauer: ''
+quelle: Kobo Store
+statistik_verfügbar: true
 ---
 
-## 📊 `reading_stats.py`: Lesestatistiken für Obsidian
+#highlight #note
+> A highlighted passage.
 
-Dieses Tool erstellt aus der `KoboReader.sqlite` eine Markdown-Datei mit Leseübersichten, inklusive:
+My note on it.
 
-- Gesamtlesezeit
-- Wöchentliche, monatliche und jährliche Lesezeit
-- Top-Bücher nach Lesezeit
-- Lesestatistiken pro Buch
+_Kapitelposition_: 42%
+_Erstellt am_: 2025-04-01T20:15:00.000
 
-Ideal für ein Obsidian-Dashboard.
+---
+```
 
-### 🔹 Ausführung
+</details>
+
+## Reading statistics (`reading_stats.py`)
 
 ```bash
-python reading_stats.py
+python reading_stats.py --dbs input/KoboReader.sqlite --output reading_stats.md
+python reading_stats.py --dbs kobo1.sqlite kobo2.sqlite --filter "Murakami"
 ```
 
-### 🔹 Optionen
+| Option | Default | Meaning |
+|---|---|---|
+| `--dbs` | *(required)* | One or more paths to Kobo databases, separated by spaces |
+| `--output` | `reading_stats.md` | Output Markdown file |
+| `--filter` | none | Only books whose title contains this text |
 
-- `--db`: Pfad zur `KoboReader.sqlite` (optional)
-- `--output`: Zielpfad für die Markdown-Datei (optional)
-- `--filter`: Optionaler Titel-Filter (Teilstring)
+## Using it with Obsidian
 
-Beispiel:
+Copy the output into your vault. The front matter and tags work well with
+[Dataview](https://github.com/blacksmithgu/obsidian-dataview) and
+[Obsidian Charts](https://github.com/phibr0/obsidian-charts).
 
-```bash
-python reading_stats.py --db ~/Downloads/KoboReader.sqlite --filter "Murakami"
-```
+## Roadmap
 
----
+- calibre plugin (in progress)
+- Delta export: only new annotations since the last run
+- Export of handwritten notes
+- Configuration file instead of command-line options
+- English Markdown output
+- Statistics by genre and author, charts of the reading history
 
-## 🔁 Mehrere Geräte unterstützen
+## Support
 
-Falls du mehrere Kobo-Geräte nutzt, kannst du alle `KoboReader.sqlite`-Dateien einzeln exportieren und zusammenführen:
+| | |
+|---|---|
+| Bug reports and ideas | [Issues](https://github.com/dkuester/inksync/issues). Please include your Kobo model and firmware version. |
+| Contributing | Pull requests against `main`. |
 
-```bash
-cat stats1.md stats2.md > kombi_stats.md
-```
+## License
 
-Eine zukünftige Version von `reading_stats.py` könnte auch mehrere Datenbanken einlesen.
-
----
-
-## 🗃️ Verzeichnisstruktur (Empfehlung)
-
-```
-inksync/
-├── input/
-│   └── KoboReader.sqlite
-├── output/
-│   └── *.md              # Exporte für Obsidian
-├── inksync.py
-├── reading_stats.py
-├── config.json
-├── requirements.txt
-└── README.md
-```
-
----
-
-## ✅ Anforderungen
-
-- Python 3.8+
-- Abhängigkeiten: `pandas`, `python-dateutil` (siehe `requirements.txt`)
-
----
-
-## 📂 Integration mit Obsidian
-
-Die erzeugten Markdown-Dateien sind direkt in Obsidian nutzbar, z. B. mit Plugins wie:
-
-- [Dataview](https://github.com/blacksmithgu/obsidian-dataview)
-- [Obsidian Charts](https://github.com/zgrosser/obsidian-charts)
-
----
-
-## ✨ Roadmap (Ideen)
-
-- Unterstützung mehrerer Datenbanken in `reading_stats.py`
-- Automatischer Sync mit Obsidian-Vault
-- Visualisierung von Leseverläufen
-- Statistiken nach Genre/Autor
-
----
-
-## 📝 Lizenz
-
-Lizenz: [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/legalcode) – freie Nutzung für nicht-kommerzielle Zwecke mit Namensnennung.
+[CC BY-NC 4.0](LICENSE): free to use, share and adapt for non-commercial
+purposes, with attribution.
