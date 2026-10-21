@@ -10,6 +10,7 @@ publish = false
 
 [dependencies]
 clap = { version = "4.6.7", features = ["derive"] }
+rusqlite = { version = "0.40.2", features = ["bundled"] }
 
 # Small binary for the device: size over speed, one codegen unit for LTO,
 # no symbols or debug info.
