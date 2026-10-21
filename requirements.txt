@@ -1,5 +1,0 @@
-sqlite-utils
-markdownify
-beautifulsoup4
-python-dateutil
-PyYAML>=6.0

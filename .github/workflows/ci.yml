@@ -1,7 +1,7 @@
 name: CI
 
-# Smoke check until the project gets real tests: dependencies install, both
-# scripts compile and start. Pushes to main and pull requests only.
+# Placeholder until the Rust crate lands: the "Protect main" ruleset requires a
+# status check named "check", so the Rust CI must keep this job name.
 on:
   push:
     branches: [main]
@@ -16,14 +16,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: No device databases committed
+        run: |
+          if git ls-files | grep -E '\.(sqlite|db)(-wal|-shm|-journal)?$'; then
+            echo "::error::Device database committed. Test fixtures must be trimmed and anonymized first."
+            exit 1
+          fi
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Compile
-        run: python -m py_compile inksync.py reading_stats.py
-      - name: Start both tools
-        run: |
-          python inksync.py --help
-          python reading_stats.py --help
+      - name: Local Markdown links resolve
+        run: python .github/scripts/check_md_links.py

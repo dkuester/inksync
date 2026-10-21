@@ -1,6 +1,9 @@
-__pycache__/
-*.pyc
+# Rust
+/target/
+
+# Device data and test dumps
 *.sqlite
-input/
-output/
-last_export.json
+*.sqlite-wal
+*.sqlite-shm
+
+.DS_Store
