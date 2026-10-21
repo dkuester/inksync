@@ -95,6 +95,13 @@ for the device. It owns all logic:
 Desktop use: `nickelinksync push|pull|status --device /Volumes/KOBOeReader`.
 On-device use: the same binary, called by the hook.
 
+Device build: a statically linked `armv7-unknown-linux-musleabihf` binary
+(`cargo-zigbuild`), independent of the device glibc, so one file serves Kobo
+firmware 4.x and Tolino firmware 5.x. HTTPS to the KOSync server must use
+`rustls`, not OpenSSL: no system library to link against or ship, and nothing
+that breaks the static build. C dependencies such as SQLite are compiled in
+(`rusqlite` with `bundled`).
+
 ### NickelHook plugin
 
 Thin C++ layer, no sync logic of its own:

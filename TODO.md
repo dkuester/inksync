@@ -26,11 +26,16 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
   - [x] **ich:** CI-Job `check` um `cargo fmt --check`, `cargo clippy` und
     `cargo test` erweitern; die beiden bestehenden Prüfungen bleiben, der
     Jobname bleibt `check`.
-- [ ] **G3 ARM-Build**
-  - [ ] **ich:** Cross-Build für `arm-kobo-linux-gnueabihf-` (Docker-Image
-    `strayrose/nickeltc`) als zusätzlicher CI-Schritt.
-  - [ ] **du:** Testlauf auf einem Gerät: Programm nach `.adds/NickelInkSync/`
-    kopieren und `--version` über NickelMenu oder telnet aufrufen.
+- [x] **G3 ARM-Build** · PR #8
+  - [x] **ich:** Statisch gelinktes Programm für
+    `armv7-unknown-linux-musleabihf`, gebaut mit `cargo-zigbuild`
+    (`just build-device`). Es hängt nicht von der glibc des Geräts ab und
+    läuft daher auf Firmware 4.x und 5.x; `strayrose/nickeltc` bleibt für das
+    Plugin (N2/N4). Der CI-Job `check` baut es, prüft es mit `file` und
+    `qemu-arm` und lädt es als Artefakt `nickelinksync-armv7-musleabihf` hoch.
+  - [x] **du:** Testlauf auf Clara BW (4.46) und Shine 5 (5.18): Programm aus
+    dem CI-Artefakt nach `.adds/NickelInkSync/` kopiert, `--version` gibt
+    `nickelinksync 0.1.0` aus.
 - [ ] **G4 Testdaten**
   - [ ] **ich:** Skript, das aus einer `KoboReader.sqlite` nur die nötigen
     Tabellen und Zeilen übernimmt (seitengeladene Bücher und ihre Kapitel) und

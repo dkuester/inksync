@@ -53,6 +53,20 @@ cargo build --release
 Das Programm liegt danach unter `target/release/nickelinksync`. Bisher gibt es
 nur Version und Hilfe aus.
 
+Für das Gerät (Kobo und Tolino, 32-Bit-ARM) baut man ein statisch gelinktes
+Programm mit [cargo-zigbuild](https://github.com/rust-cross/cargo-zigbuild):
+
+```sh
+rustup target add armv7-unknown-linux-musleabihf
+pip install cargo-zigbuild   # installiert auch Zig
+just build-device
+```
+
+Es liegt dann unter `target/armv7-unknown-linux-musleabihf/release/nickelinksync`.
+`just check-device` ruft zusätzlich `--version` in einem ARM-Container auf
+(braucht Docker). Jeder CI-Lauf lädt dieselbe Datei als Artefakt
+`nickelinksync-armv7-musleabihf` hoch.
+
 ## Support
 
 | | |

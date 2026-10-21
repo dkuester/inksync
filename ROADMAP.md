@@ -25,20 +25,17 @@ L = a week or more, including verification.
 - [x] Rust skeleton: crate `nickelinksync` (library + CLI with placeholder
       `status`/`push`/`pull`), `rustfmt`, `clippy`, host tests; CI job `check`
       runs them
+- [x] ARM device build: one statically linked `armv7-unknown-linux-musleabihf`
+      binary (`cargo-zigbuild`, `just build-device`) for Kobo 4.x and Tolino
+      5.x, built and checked under QEMU in CI job `check`, uploaded as an
+      artifact; `--version` verified on Clara BW (4.46) and Shine 5 (5.18)
 
 ## Quick wins
 
-- **Rust skeleton + CI** (S): crate, `clippy`/`rustfmt`, host tests, a
-  cross-build job for `arm-kobo-linux-gnueabihf-`. Why: everything below
-  builds on it. Keep the job name `check`, which the `main` ruleset requires.
 - **License** (S): replace CC BY-NC 4.0 with a software license. Why: CC
   discourages its licenses for code, and BY-NC is not GPL-compatible, which
   blocks reuse of KOReader code and redistribution alongside it. If code from
   BookOrbit's position converter is ever ported, the project has to be AGPL-3.0.
-- **ARM cross-build** (S): build the CLI for the device with the
-  `arm-kobo-linux-gnueabihf-` toolchain (Docker image `strayrose/nickeltc`) as
-  an extra step of the CI job `check`. Why: the on-device CLI and the plugin
-  need it. Verification: run `--version` on a device.
 
 ## High priority
 
