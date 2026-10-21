@@ -42,6 +42,17 @@ In diesem Repository lag früher `inksync`, ein Export von Markierungen und
 Lesezeit vom Kobo nach Obsidian. Er wurde mit dem Scope-Wechsel entfernt; die
 letzte Version steht in der Git-Historie vor diesem Wechsel.
 
+## Bauen
+
+Benötigt eine stabile [Rust](https://rustup.rs)-Toolchain.
+
+```sh
+cargo build --release
+```
+
+Das Programm liegt danach unter `target/release/nickelinksync`. Bisher gibt es
+nur Version und Hilfe aus.
+
 ## Support
 
 | | |
