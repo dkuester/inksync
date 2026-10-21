@@ -1,7 +1,7 @@
 name: CI
 
-# Placeholder until the Rust crate lands: the "Protect main" ruleset requires a
-# status check named "check", so the Rust CI must keep this job name.
+# Repository checks plus the Rust host build. The "Protect main" ruleset
+# requires a status check named "check", so keep this job name.
 on:
   push:
     branches: [main]
@@ -27,3 +27,13 @@ jobs:
           python-version: '3.12'
       - name: Local Markdown links resolve
         run: python .github/scripts/check_md_links.py
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Formatting
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Tests
+        run: cargo test

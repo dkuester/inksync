@@ -41,6 +41,17 @@ This repository used to hold `inksync`, a Kobo-to-Obsidian export of
 highlights and reading time. It was removed when the project changed scope.
 The last version is in the Git history before the scope change.
 
+## Build
+
+Needs a stable [Rust](https://rustup.rs) toolchain.
+
+```sh
+cargo build --release
+```
+
+The binary is `target/release/nickelinksync`. It only prints its version and
+help so far.
+
 ## Support
 
 | | |
