@@ -119,16 +119,18 @@ Reference devices, both read from a copy of the database, never written:
 
 - **Kobo Clara BW**, firmware 4.46.23836, database version 176, two sideloaded kepubs
 - **Tolino Shine 5**, firmware 5.18.264769, database version 220, two sideloaded plain EPUBs
+- Both again after loading the placeholder EPUB fixtures (a kepub and two plain
+  EPUBs), plus **KOReader 2026.07** (macOS) on the same files
 
 | Question | Kobo 4.46 | Tolino 5.18 |
 |---|---|---|
 | Book row | `ContentType = 6`, `ContentID = file:///mnt/onboard/<path>` | same |
-| MimeType | `application/x-kobo-epub+zip` (kepub) | `application/epub+zip` (plain EPUB) |
-| Chapter rows | `ContentType = 9`, one per spine item, `ContentID = /mnt/onboard/<path>!<opf dir>!<href>`; plus `ContentType = 899`, one per ToC entry | `ContentType = 9`, one per **ToC entry** (no spine rows), `ContentID` is a **UUID**, target in `adobe_location` |
-| Chapter → book | `BookID` = book `ContentID`, `VolumeIndex` = spine index (type 9) | `BookID` = book `ContentID`, `VolumeIndex` = **ToC index**, not spine index |
+| MimeType | `application/x-kobo-epub+zip` (kepub), `application/epub+zip` (plain EPUB) | `application/epub+zip`, **also for a `.kepub.epub`** |
+| Chapter rows | kepub: `ContentType = 9`, one per spine item, `ContentID = /mnt/onboard/<path>!<opf dir>!<href>`; plus `ContentType = 899`, one per ToC entry. Plain EPUB: `ContentType = 9`, one per **ToC entry**, `ContentID = file:///mnt/onboard/<path>#(<ToC index>)<target>`, target in `adobe_location` | `ContentType = 9`, one per **ToC entry** (no spine rows), `ContentID` is a **UUID**, target in `adobe_location` |
+| Chapter → book | `BookID` = book `ContentID`, `VolumeIndex` = spine index (kepub, type 9), ToC index (plain EPUB) | `BookID` = book `ContentID`, `VolumeIndex` = **ToC index**, not spine index |
 | Position field | `ChapterIDBookmarked`, `___PercentRead` (integer percent) | same |
-| Position format | `<href>#kobo.N.M` (kepub span ID) | `<href>#point(/1/2/1/1:0)` (Adobe point) |
-| `adobe_location` | empty | empty, even for plain EPUB |
+| Position format | `<href>#kobo.N.M` (kepub span ID), `<href>#point(...)` (plain EPUB); the fragment can be missing (`<href>` only) | `<href>#point(/1/2/1/1:0)` (Adobe point), also for a kepub |
+| `adobe_location` (book row) | empty, even for plain EPUB | empty, even for plain EPUB |
 | Extra tables | — | `tolino_*` (cloud, DRM, Skoobe); `BookReader.sqlite` is encrypted and not needed |
 
 In the chapter-row `ContentID`, `<href>` is relative to the OPF directory;
@@ -139,8 +141,13 @@ format: it differs between firmware lines. On the Kobo, `BookID` +
 Tolino it does not: the rows are ToC entries (`NumShortcovers` counts them),
 so in *Heat 2* `xhtml-0-81.xhtml` (spine index 81) has `VolumeIndex` 80, and
 the *Titan 2* position lies in a spine item without a ToC entry and so
-without a row. Find the chapter through the OPF spine there. Both cases are
-in the [test fixtures](tests/fixtures/README.md).
+without a row. A plain EPUB on the Kobo 4.46 behaves the same way. Find the
+chapter through the OPF spine there. All cases are in the
+[test fixtures](tests/fixtures/README.md).
+
+The fragment of `ChapterIDBookmarked` is optional: the Kobo stores the bare
+chapter path at the start of a plain-EPUB chapter and on kepub pages without
+`koboSpan` spans.
 
 **Kepub span → XPointer** (Kobo): `OEBPS/xhtml/xhtml-0-81.xhtml#kobo.1.172`
 → spine index 81 → KOReader `DocFragment[82]`; span `id="kobo.1.172"` exists
@@ -155,6 +162,22 @@ final text node. Checked on two books: `/1/2/1/1:0` hits the chapter heading
 in *Heat 2*, `/1/4/16/1:356` hits mid-paragraph text in *Star Trek Titan 2*.
 Two samples, so the edge cases (entities, CDATA, comments) are still open.
 
+**KOReader positions** (KOReader 2026.07, `cre_dom_version` 20260812):
+`metadata.epub.lua` holds `last_xpointer` and also `last_epubcfi`. Spine
+index *i* is `DocFragment[i+1]` and CFI step `/6/(2i+2)`, for kepub and plain
+EPUB. At the start of the same chapter heading:
+
+| Device | Stored | KOReader |
+|---|---|---|
+| Kobo, kepub | `xhtml-0-81.xhtml#kobo.1.1` | `/body[1]/DocFragment[82]/body[1]/div[1]/div[1]/div[1]/span[1]/text()[1].0` |
+| Tolino, plain EPUB | `xhtml-0-81.xhtml#point(/1/2/1/1:0)` | `/body[1]/DocFragment[82]/body[1]/div[1]/text()[1].0` |
+
+KOReader keeps the kepub wrappers `div#book-columns` / `div#book-inner` and
+the `koboSpan` spans as elements, so a kepub and its source EPUB give
+different XPointers for the same text. Element indices match the source DOM.
+Positions taken by paging (end of Book C) are page starts and differ between
+renderers; only chapter starts line up exactly.
+
 **Store vs. sideloaded**: store books have UUID `ContentID`s on both
 firmware lines; filtering on `file:///mnt/onboard/` is enough.
 
@@ -165,21 +188,19 @@ exactly the case the later manual mapping is for.
 
 ## Open technical questions
 
-1. **Plain EPUB on Kobo 4.x.** Only checked on Tolino 5.18. Kobo 4.x may still
-   use `adobe_location` for plain EPUBs.
-2. **Shine Color and Vision Color.** Assumed to match the Shine 5; not checked.
-3. **XPointer below chapter level.** KOReader addresses a text node by DOM
-   path (`/body/DocFragment[82]/body/div/p[12]/text().0`). Mapping a Kobo span
-   or an Adobe point to that path means replicating how KOReader's crengine
-   builds its DOM (whitespace handling, whether it keeps `koboSpan` elements),
-   checked against a KOReader dump.
-4. **Write-back.** Writing the position into the database only works safely
+1. **Shine Color and Vision Color.** Assumed to match the Shine 5; not checked.
+2. **XPointer inside a text node.** Checked at chapter starts only (see
+   [KOReader positions](#verified-findings)): KOReader keeps `koboSpan`
+   elements and the kepub wrappers. Still open: whether character offsets
+   inside a text node count the same in Nickel's Adobe point and in
+   KOReader (whitespace, entities, soft hyphens).
+3. **Write-back.** Writing the position into the database only works safely
    while Nickel is not running (USB mode). The plugin path needs a libnickel
    symbol to jump to a position, on both Qt5 and Qt6 builds.
 
 ## Test data still needed
 
-- The KOReader state for one of the reference books
-  (`<book>.sdr/metadata.epub.lua`), to check the XPointer format below chapter level
-- A sideloaded plain EPUB on the Kobo, opened at a known spot
+- A device position and a KOReader position at the same spot inside a
+  paragraph (offset > 0), for open question 2; paging alone does not give
+  one, so this needs a computed XPointer opened in KOReader
 - Optional: a database from a Shine Color or Vision Color

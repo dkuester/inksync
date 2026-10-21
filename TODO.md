@@ -63,22 +63,24 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     Datenbank erkennen (`tolino_*`-Tabellen).
 - [ ] **K2 Prüfsumme**
   - [ ] **ich:** Teil-MD5 wie KOReader (1-KiB-Stichproben ab Offset 256).
-  - [ ] **du:** Für eines der beiden Bücher die `metadata.epub.lua` aus KOReader
-    liefern (`<buch>.sdr/`). Sie enthält `partial_md5_checksum` als
-    Vergleichswert und die Position für K4.
-  - [ ] **ich:** Test gegen diesen Wert.
+  - [x] **du:** `metadata.epub.lua` aus KOReader geliefert, für die drei
+    Fixture-EPUBs (`tests/fixtures/koreader/`). Sie enthalten
+    `partial_md5_checksum` als Vergleichswert und die Positionen für K4.
+  - [ ] **ich:** Test gegen diese Werte.
 - [ ] **K3 Position auf Kapitelebene**
-  - [ ] **ich:** `ChapterIDBookmarked` zerlegen: `href#kobo.N.M` (kepub) und
-    `href#point(...)` (EPUB).
+  - [ ] **ich:** `ChapterIDBookmarked` zerlegen: `href#kobo.N.M` (kepub),
+    `href#point(...)` (EPUB) und `href` ohne Fragment (Kapitelanfang).
   - [ ] **ich:** OPF-Spine lesen, `href` → `DocFragment[n]`, Prozentwert als
     Rückfallebene.
   - [ ] **ich:** Tests mit den Fixtures aus G4: Heat 2 (Kobo und Tolino:
     `xhtml-0-81.xhtml` = Spine-Index 81 → `DocFragment[82]`; auf dem Tolino
     hat die Kapitelzeile `VolumeIndex` 80) und Titan 2 (Spine-Index 39, ohne
     ToC-Eintrag und ohne Kapitelzeile).
-- [ ] **K4 Position genau** · `[!]` blockiert, bis die `metadata.epub.lua` aus K2 da ist
-  - [ ] **ich:** Aus der Datei ablesen, welchen DOM-Pfad KOReader erwartet
-    (Leerraum, `koboSpan`-Elemente).
+- [ ] **K4 Position genau**
+  - [~] **ich:** Aus der Datei ablesen, welchen DOM-Pfad KOReader erwartet
+    (Leerraum, `koboSpan`-Elemente). Am Kapitelanfang geprüft: KOReader
+    behält `koboSpan` und die kepub-Hüllen (`SCOPE.md`). Offen: Offsets
+    mitten im Text.
   - [ ] **ich:** Kobo-Span → XPointer und Adobe-Point → XPointer, jeweils auch
     rückwärts.
   - [ ] **du:** Gegenprobe: Ein von uns berechneter XPointer öffnet in KOReader
@@ -127,8 +129,9 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
 
 - [ ] **O1 Manuelle Zuordnung** von Büchern (kepub ↔ EPUB), Testfall Heat 2.
   Vorbild: BookOrbit, nur als Konzept (AGPL-3.0).
-- [ ] **O2 Normales EPUB auf Kobo 4.x** · **du:** ein normales EPUB auf den Clara
-  laden und an einer bekannten Stelle öffnen.
+- [x] **O2 Normales EPUB auf Kobo 4.x** · **du:** ein normales EPUB auf den Clara
+  geladen und geöffnet. Ergebnis: wie auf dem Tolino `#point(...)`,
+  Kapitelzeilen sind ToC-Einträge (`SCOPE.md`).
 - [ ] **O3 Einstellungsdialog** auf dem Gerät.
 - [ ] **O4 Sync-Status** im Buchmenü, plus „Jetzt synchronisieren“.
 - [ ] **O5 Geräteübersicht** in `status`: alle Positionen eines Buchs nebeneinander.
