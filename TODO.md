@@ -20,10 +20,10 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     Code dient nur als Vorlage, nachgebaut wird das beschriebene Verhalten.
   - [x] **ich:** `LICENSE` ersetzen, Abschnitt „Lizenz“ in beiden READMEs
     anpassen, Lizenzhinweis in `SCOPE.md`.
-- [ ] **G2 Rust-Grundgerüst**
-  - [ ] **ich:** Crate `nickelinksync` (Bibliothek + Programm), `rustfmt.toml`,
+- [x] **G2 Rust-Grundgerüst** · PR #6
+  - [x] **ich:** Crate `nickelinksync` (Bibliothek + Programm), `rustfmt.toml`,
     `clippy` ohne Warnungen, `Cargo.lock` im Repo.
-  - [ ] **ich:** CI-Job `check` um `cargo fmt --check`, `cargo clippy` und
+  - [x] **ich:** CI-Job `check` um `cargo fmt --check`, `cargo clippy` und
     `cargo test` erweitern; die beiden bestehenden Prüfungen bleiben, der
     Jobname bleibt `check`.
 - [ ] **G3 ARM-Build**
