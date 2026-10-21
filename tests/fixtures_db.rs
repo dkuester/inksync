@@ -1,6 +1,7 @@
 //! Checks the anonymized device database fixtures in `tests/fixtures/db` (see
 //! `tests/fixtures/README.md`): each one loads into SQLite and has the
-//! structure the database reader relies on.
+//! structure the database reader relies on. The placeholder-book fixtures are
+//! also checked against the KOReader state in `tests/fixtures/koreader`.
 
 use rusqlite::{Connection, OptionalExtension};
 
@@ -259,4 +260,102 @@ fn position_formats() {
   assert!(!is_adobe_point("point(/1/4/16/1)"));
   assert!(is_uuid("df2ca96a-5585-4ddd-9176-dbfa891a9b6f"));
   assert!(!is_uuid("/mnt/onboard/book.epub"));
+}
+
+/// A string value from a KOReader `metadata.epub.lua` in
+/// `tests/fixtures/koreader`.
+fn koreader_value(sdr: &str, key: &str) -> String {
+  let path = format!(
+    "{}/tests/fixtures/koreader/{sdr}/metadata.epub.lua",
+    env!("CARGO_MANIFEST_DIR")
+  );
+  let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{path}: {e}"));
+  let prefix = format!("[\"{key}\"] = \"");
+  text
+    .lines()
+    .find_map(|line| line.trim().strip_prefix(&prefix)?.strip_suffix("\","))
+    .unwrap_or_else(|| panic!("{key} not in {path}"))
+    .to_string()
+}
+
+fn book<'a>(books: &'a [Book], file: &str) -> &'a Book {
+  books
+    .iter()
+    .find(|b| b.content_id == format!("file:///mnt/onboard/Books/{file}"))
+    .unwrap_or_else(|| panic!("{file} not in the fixture"))
+}
+
+// The EPUB fixtures themselves on both devices and in KOReader 2026.07, Book A
+// opened at the heading of xhtml-0-81.xhtml (spine index 81). See
+// tests/fixtures/README.md.
+
+#[test]
+fn kobo_placeholder_books() {
+  let db = load("kobo-clarabw-4.46-placeholder-books.sql");
+  let books = sideloaded_books(&db);
+  assert_eq!(books.len(), 3);
+
+  // Kepub: span ID, spine row 81, KOReader DocFragment[82] at the same span.
+  let kepub = book(&books, "book-a.kepub.epub");
+  assert_eq!(kepub.mime_type, "application/x-kobo-epub+zip");
+  assert_eq!(kepub.bookmark, "OEBPS/xhtml/xhtml-0-81.xhtml#kobo.1.1");
+  let spine_row: String = db
+    .query_row(
+      "SELECT ContentID FROM content WHERE BookID = ?1 AND ContentType = '9' AND VolumeIndex = 81",
+      [&kepub.content_id],
+      |row| row.get(0),
+    )
+    .unwrap();
+  assert!(spine_row.ends_with("!OEBPS!xhtml/xhtml-0-81.xhtml"));
+  assert_eq!(
+    koreader_value("book-a.kepub.sdr", "last_xpointer"),
+    "/body[1]/DocFragment[82]/body[1]/div[1]/div[1]/div[1]/span[1]/text()[1].0"
+  );
+  assert!(koreader_value("book-a.kepub.sdr", "last_epubcfi").contains("/2[kobo.1.1]/1:0)"));
+
+  // Plain EPUB on firmware 4.46: like the Tolino, chapter rows are ToC
+  // entries, with a ContentID of its own: file://<path>#(<ToC index>)<target>.
+  for file in ["book-a.epub", "book-c.epub"] {
+    let epub = book(&books, file);
+    assert_eq!(epub.mime_type, "application/epub+zip");
+    let rows = chapters(&db, epub);
+    assert_eq!(rows.len() as i64, epub.shortcovers);
+    for (i, (content_type, volume_index, content_id, target)) in rows.iter().enumerate() {
+      assert_eq!((content_type.as_str(), *volume_index), ("9", i as i64));
+      let target = target.as_deref().unwrap();
+      assert_eq!(*content_id, format!("{}#({i}){target}", epub.content_id));
+    }
+  }
+  // The position may have no fragment at all (chapter start of a plain EPUB).
+  assert_eq!(
+    book(&books, "book-a.epub").bookmark,
+    "OEBPS/xhtml/xhtml-0-7.xhtml"
+  );
+  let (_, fragment) = book(&books, "book-c.epub").position();
+  assert!(is_adobe_point(fragment));
+}
+
+#[test]
+fn tolino_placeholder_books() {
+  let db = load("tolino-shine5-5.18-placeholder-books.sql");
+  let books = sideloaded_books(&db);
+  assert_eq!(books.len(), 3);
+  // The Tolino reads a kepub as a plain EPUB.
+  assert!(books.iter().all(|b| b.mime_type == "application/epub+zip"));
+  assert!(books.iter().all(|b| is_adobe_point(b.position().1)));
+
+  // Same node in both: html/body/div#aid_191/text, offset 0.
+  let epub = book(&books, "book-a.epub");
+  assert_eq!(
+    epub.bookmark,
+    "OEBPS/xhtml/xhtml-0-81.xhtml#point(/1/2/1/1:0)"
+  );
+  assert_eq!(
+    koreader_value("book-a.sdr", "last_xpointer"),
+    "/body[1]/DocFragment[82]/body[1]/div[1]/text()[1].0"
+  );
+  assert_eq!(
+    koreader_value("book-a.sdr", "last_epubcfi"),
+    "epubcfi(/6/164!/4/2[aid_191]/1:0)"
+  );
 }
