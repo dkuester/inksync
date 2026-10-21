@@ -47,8 +47,14 @@ kepub and its source EPUB share progress (see the roadmap).
 ([`docs/KOREADER_HASH_MATCHING.md`](https://github.com/bookorbit/bookorbit/blob/main/docs/KOREADER_HASH_MATCHING.md),
 manual links take precedence over automatic hash matches) and has a position
 converter for Kobo spans, XPointer and CFI
-(`server/src/modules/position-converter/`). BookOrbit is AGPL-3.0: use it as a
-reference for the approach, don't copy code unless NickelInkSync becomes AGPL too.
+(`server/src/modules/position-converter/`).
+
+## License
+
+NickelInkSync is MIT-licensed. KOReader, koreader-sync-server and BookOrbit are
+AGPL-3.0, so their code is a reference only: re-implement the documented
+behaviour (KOSync protocol, partial MD5, XPointer format), never copy or
+translate their source. NickelHook is MIT and can be used as is.
 
 ## Out of scope
 
