@@ -62,5 +62,4 @@ nur Version und Hilfe aus.
 
 ## Lizenz
 
-Vorerst [CC BY-NC 4.0](LICENSE). Ein Wechsel zu einer Software-Lizenz ist
-geplant (siehe [Roadmap](ROADMAP.md)).
+[MIT](LICENSE)

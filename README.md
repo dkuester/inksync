@@ -61,5 +61,4 @@ help so far.
 
 ## License
 
-[CC BY-NC 4.0](LICENSE) for now. A switch to a software license is planned
-(see the [roadmap](ROADMAP.md)).
+[MIT](LICENSE)

@@ -16,6 +16,7 @@ L = a week or more, including verification.
 - [x] Legacy Obsidian export (`inksync.py`, `reading_stats.py`) and its CI removed
 - [x] Stale `migrate-to-calibre-plugin` branch deleted (still in the Codeberg archive)
 - [x] Placeholder CI job `check` (no device databases, local Markdown links) for the `main` ruleset
+- [x] License switched from CC BY-NC 4.0 to MIT
 - [x] Book identity for the first version: same file on every device, KOReader binary hash
 - [x] Kobo 4.46 database checked (Clara BW): kepub position format, chapter rows,
       spine index → `DocFragment` mapping
@@ -27,6 +28,9 @@ L = a week or more, including verification.
 
 ## Quick wins
 
+- **Rust skeleton + CI** (S): crate, `clippy`/`rustfmt`, host tests, a
+  cross-build job for `arm-kobo-linux-gnueabihf-`. Why: everything below
+  builds on it. Keep the job name `check`, which the `main` ruleset requires.
 - **License** (S): replace CC BY-NC 4.0 with a software license. Why: CC
   discourages its licenses for code, and BY-NC is not GPL-compatible, which
   blocks reuse of KOReader code and redistribution alongside it. If code from
@@ -70,7 +74,8 @@ L = a week or more, including verification.
   progress; a manual link wins over the automatic hash match. Translating the
   position between two different files needs matching chapter hrefs or a
   text anchor. Reference: BookOrbit's hash matching and position converter
-  (AGPL-3.0, concept only). Test case: *Heat 2* on the two reference devices.
+  (AGPL-3.0, concept only, see the license note in [SCOPE.md](SCOPE.md#license)).
+  Test case: *Heat 2* on the two reference devices.
 - **Plain EPUB on Kobo 4.x *(optional)*** (M): check whether 4.x stores
   `#point(...)` like 5.18 or uses `adobe_location`. Blocker: a sideloaded
   plain EPUB on the Kobo.
