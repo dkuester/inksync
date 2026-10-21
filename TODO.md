@@ -14,11 +14,12 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
 
 ## Grundlagen
 
-- [ ] **G1 Lizenz**
-  - [ ] **du:** Lizenz wählen. Optionen: MIT oder Apache-2.0 (offen, frei
-    kombinierbar), GPL-3.0 (passt zu KOReader), AGPL-3.0 (nur nötig, wenn wir
-    Code aus BookOrbit übernehmen).
-  - [ ] **ich:** `LICENSE` ersetzen, Abschnitt „Lizenz“ in beiden READMEs anpassen.
+- [x] **G1 Lizenz** · PR #5
+  - [x] **du:** Lizenz wählen: MIT, wie NickelHook und deine anderen Projekte.
+    KOReader, koreader-sync-server und BookOrbit stehen unter AGPL-3.0; ihr
+    Code dient nur als Vorlage, nachgebaut wird das beschriebene Verhalten.
+  - [x] **ich:** `LICENSE` ersetzen, Abschnitt „Lizenz“ in beiden READMEs
+    anpassen, Lizenzhinweis in `SCOPE.md`.
 - [ ] **G2 Rust-Grundgerüst**
   - [ ] **ich:** Crate `nickelinksync` (Bibliothek + Programm), `rustfmt.toml`,
     `clippy` ohne Warnungen, `Cargo.lock` im Repo.
