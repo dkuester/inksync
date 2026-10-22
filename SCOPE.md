@@ -165,21 +165,24 @@ nodes. Checked on two books (`/1/2/1/1:0` hits the chapter heading in
 *Heat 2*, `/1/4/16/1:356` mid-paragraph text in *Star Trek Titan 2*) and with
 highlights in the probe book Book P on both devices.
 
-**Offsets inside a text node** (highlights of the same eight words in Book P,
-see the [test fixtures](tests/fixtures/README.md)): node paths agree
+**Offsets inside a text node** (highlights of the same eight words in the
+probe books Book P and Book Q on every device, see the
+[test fixtures](tests/fixtures/README.md)): node paths agree
 everywhere; only the offsets need converting.
 
 | | Unit | Whitespace | Comment |
 |---|---|---|---|
-| Kobo span (`StartOffset`) | characters | as is | — (spans split there) |
+| Kobo span (`StartOffset`) | UTF-16 units | as is | — (spans split there) |
 | Adobe point, Kobo 4.46 | UTF-8 bytes | as is | skipped, text joined |
 | Adobe point, Tolino 5.18 | UTF-8 bytes | as is | counted as a node |
 | KOReader XPointer | code points | collapsed (`\n    ` = 1, leading spaces = 1) | splits `text()` |
 | KOReader CFI | UTF-16 units | collapsed | skipped, text joined |
 
-CDATA (Book Q): a node of its own for the Adobe point on Tolino 5.18 and a
-`text()` node of its own for KOReader's XPointer; KOReader's CFI joins the
-text across it.
+CDATA behaves like a comment in the Adobe point (skipped on Kobo 4.46, a
+node on Tolino 5.18), is a `text()` node of its own in KOReader's XPointer,
+and is joined into the text by KOReader's CFI. A character outside the BMP
+(`𝄞`) is 4 in the Adobe point, 2 in a Kobo span and KOReader's CFI, and 1 in
+KOReader's XPointer; a combining accent is one character everywhere.
 
 **KOReader positions** (KOReader 2026.07, `cre_dom_version` 20260812):
 `metadata.epub.lua` holds `last_xpointer` and also `last_epubcfi`. Spine
@@ -208,16 +211,14 @@ exactly the case the later manual mapping is for.
 ## Open technical questions
 
 1. **Shine 5 and Vision Color.** Assumed to match the Shine Color; not checked.
-2. **Offsets on Kobo 4.46 with Book Q.** Tolino 5.18 and KOReader are
-   checked with umlauts, multi-byte characters, CDATA and leading spaces
-   (see [Verified findings](#verified-findings)); the Kobo highlights of
-   Book Q (kepub span offsets with `𝄞`: characters or UTF-16 units?) are
-   still to read. Whitespace at the end of a block is not covered.
+2. **Whitespace at the end of a block** and other cases the probe books do
+   not cover (named entities from a DTD, `xml:space`, `<pre>`). The offset
+   rules in [Verified findings](#verified-findings) hold for everything Book P
+   and Book Q test.
 3. **Write-back.** Writing the position into the database only works safely
    while Nickel is not running (USB mode). The plugin path needs a libnickel
    symbol to jump to a position, on both Qt5 and Qt6 builds.
 
 ## Test data still needed
 
-- The Kobo 4.46 database with the Book Q highlights, for open question 2
 - Optional: a database from a Shine 5 or Vision Color

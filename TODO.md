@@ -87,8 +87,9 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     CDATA, Leerraum am Absatzanfang und kombinierende Akzente, unter eigenem
     Namen (**Book Q**, `book-q*.epub`), damit es nicht mit Book P verwechselt
     wird.
-  - [ ] **du:** Book Q auf Kobo, Tolino und in KOReader laden und die acht
-    Zielwörter markieren (Liste in `tests/fixtures/README.md`).
+  - [x] **du:** Book Q auf Kobo, Tolino und in KOReader laden und die acht
+    Zielwörter markieren (Liste in `tests/fixtures/README.md`). Auf dem Kobo
+    erst im zweiten Anlauf vollständig gespeichert.
   - [x] **du:** Book P (`tests/fixtures/epub/book-p*.epub`) auf Kobo, Tolino
     und in KOReader laden und die acht Zielwörter markieren (Liste in
     `tests/fixtures/README.md`), dann beide Datenbanken und die `.sdr`-Ordner
