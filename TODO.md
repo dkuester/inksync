@@ -142,3 +142,7 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
 - [ ] **O3 Einstellungsdialog** auf dem Gerät.
 - [ ] **O4 Sync-Status** im Buchmenü, plus „Jetzt synchronisieren“.
 - [ ] **O5 Geräteübersicht** in `status`: alle Positionen eines Buchs nebeneinander.
+- [ ] **O6 Markierungen auf Kobo 5.x/6.x nachtesten** · **du:** Book P auf einem
+  Kobo mit Firmware 5.18 oder 6.x markieren. Auf 4.46 zeigt Nickel Markierungen
+  im kepub verschoben und im EPUB teils gar nicht an (gespeichert wird
+  richtig); auf dem Tolino mit 5.18 tritt das nicht auf.
