@@ -13,6 +13,8 @@ derive from them.
 | [`kobo-clarabw-4.46.sql`](db/kobo-clarabw-4.46.sql) | Kobo Clara BW | 4.46.23836 | 176 | Book A, Book B (kepub) |
 | [`tolino-shinecolor-5.18.sql`](db/tolino-shinecolor-5.18.sql) | Tolino Shine Color | 5.18.264769 | 220 | Book A, Book C (plain EPUB) |
 | [`kobo-clarabw-4.46-placeholder-books.sql`](db/kobo-clarabw-4.46-placeholder-books.sql) | Kobo Clara BW | 4.46.23836 | 176 | the three EPUB fixtures below |
+| [`kobo-clarabw-4.46-probe-book.sql`](db/kobo-clarabw-4.46-probe-book.sql) | Kobo Clara BW | 4.46.23836 | 176 | Book P (kepub and EPUB) with highlights |
+| [`tolino-shinecolor-5.18-probe-book.sql`](db/tolino-shinecolor-5.18-probe-book.sql) | Tolino Shine Color | 5.18.264769 | 220 | Book P (EPUB) with highlights |
 | [`tolino-shinecolor-5.18-placeholder-books.sql`](db/tolino-shinecolor-5.18-placeholder-books.sql) | Tolino Shine Color | 5.18.264769 | 220 | the three EPUB fixtures below |
 
 Book A is the same title on both devices (as two different files: a kepub on
@@ -108,9 +110,8 @@ highlight per word, starting exactly at the word. Then copy
 KOReader. `make_db_fixture.py --bookmarks` keeps the highlights of the fixture
 books; highlights in any other book stop it.
 
-Where each format should put the start of the word. The two KOReader columns
-are a hypothesis (indices counted over the source DOM), which the
-highlights confirm or refute:
+Where each format should put the start of the word, as predicted by
+`make_probe_epub.py` from the source DOM (the results follow below):
 
 | Word | After | EPUB: Adobe point | kepub: span, offset | KOReader EPUB (naive) | KOReader kepub (naive) |
 |---|---|---|---|---|---|
@@ -123,12 +124,41 @@ highlights confirm or refute:
 | `p6w03` | a line break and indentation | `point(/1/4/14/1:16)` | `kobo.7.1`, 16 | `/body[1]/DocFragment[2]/body[1]/p[6]/text()[1].16` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[6]/span[1]/text()[1].16` |
 | `p7w03` | a comment | `point(/1/4/16/3:7)` | `kobo.8.2`, 7 | `/body[1]/DocFragment[2]/body[1]/p[7]/text()[2].7` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[7]/span[2]/text()[1].7` |
 
+**Results** (2026-10-22): the eight words highlighted on the Kobo (kepub and
+EPUB), the Tolino (EPUB) and in KOReader (both); stored in the
+`-probe-book` SQL fixtures (`Bookmark` rows) and in
+`koreader/book-p*.sdr/`. Bold where the prediction was wrong:
+
+| Word | Kobo kepub | Kobo EPUB | Tolino EPUB | KOReader EPUB | KOReader kepub |
+|---|---|---|---|---|---|
+| `p1w08` | `kobo.2.1`, 42 | `/1/4/4/1:42` | `/1/4/4/1:42` | `p[1]/text()[1].42` | `…/span[1]/text()[1].42` |
+| `p2w04` | `kobo.3.1`, 18 | **`/1/4/6/1:20`** | **`/1/4/6/1:20`** | `p[2]/text()[1].18` | `….18` |
+| `p3w03` | `kobo.4.1`, 14 | `/1/4/8/1:14` | `/1/4/8/1:14` | `p[3]/text()[1].14` | `….14` |
+| `p4w03` | `kobo.5.1`, 13 | **`/1/4/10/1:14`** | **`/1/4/10/1:14`** | `p[4]/text()[1].13` | `….13` |
+| `p5w03` | `kobo.6.2`, 6 | `/1/4/12/2/1:6` | `/1/4/12/2/1:6` | `p[5]/em[1]/text()[1].6` | `…/em[1]/span[1]/text()[1].6` |
+| `p5w04` | `kobo.6.3`, 1 | `/1/4/12/3:1` | `/1/4/12/3:1` | `p[5]/text()[2].1` | `…/span[2]/text()[1].1` |
+| `p6w03` | `kobo.7.1`, 16 | `/1/4/14/1:16` ¹ | `/1/4/14/1:16` | **`p[6]/text()[1].12`** | **`….12`** |
+| `p7w03` | `kobo.8.2`, 7 | **`/1/4/16/1:13`** | `/1/4/16/3:7` | `p[7]/text()[2].7` | `…/span[2]/text()[1].7` |
+
+¹ The selection started at the space before the word (`/1/4/14/1:15`).
+
+- Adobe point offsets count **UTF-8 bytes**: no-break space and soft hyphen
+  are two bytes each (p2w04, p4w03). Whitespace is counted as is (p6w03).
+- Kobo 4.46 skips the comment and joins the text around it (`/1:13`), the
+  Tolino 5.18 counts the comment as a node (`/3:7`).
+- Kobo span offsets count characters, whitespace as is.
+- KOReader counts characters after collapsing whitespace (p6w03: 12) and
+  starts a new `text()` after a comment; its CFI joins the text instead
+  (`epubcfi(/6/4!/4/16,/1:13,…)`).
+
 ## KOReader state (`koreader/`)
 
 `metadata.epub.lua` from KOReader 2026.07 on macOS (`cre_dom_version`
 20260812), one per EPUB fixture, opened from the identical files. Only
 `doc_path` was changed (`/home/reader/books/…`); the files hold no other
-personal data. Each has the KOReader partial MD5 of the file
+personal data. Also `book-p.sdr` and `book-p.kepub.sdr` with the Book P highlights
+(`annotations`, each with `pos0`/`pos1` and `epubcfi`). Each has the KOReader
+partial MD5 of the file
 (`partial_md5_checksum`) and the position as XPointer and EPUB CFI.
 
 | File | Kobo 4.46 | Tolino 5.18 | KOReader `last_xpointer` |
