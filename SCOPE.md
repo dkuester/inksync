@@ -30,7 +30,7 @@ everything else is still an assumption.
 | Server | Any KOSync-compatible server (koreader-sync-server, self-hosted forks) |
 
 Both firmware lines are needed: the reference Kobo (Clara BW) runs 4.46, the
-reference Tolino (Shine 5) runs 5.18. The Rust core is unaffected; the
+reference Tolino (Shine Color) runs 5.18. The Rust core is unaffected; the
 NickelHook plugin is built twice (Qt5 and Qt6).
 
 ## Book identity
@@ -118,7 +118,7 @@ Thin C++ layer, no sync logic of its own:
 Reference devices, both read from a copy of the database, never written:
 
 - **Kobo Clara BW**, firmware 4.46.23836, database version 176, two sideloaded kepubs
-- **Tolino Shine 5**, firmware 5.18.264769, database version 220, two sideloaded plain EPUBs
+- **Tolino Shine Color**, firmware 5.18.264769, database version 220, two sideloaded plain EPUBs
 - Both again after loading the placeholder EPUB fixtures (a kepub and two plain
   EPUBs), plus **KOReader 2026.07** (macOS) on the same files
 
@@ -188,7 +188,7 @@ exactly the case the later manual mapping is for.
 
 ## Open technical questions
 
-1. **Shine Color and Vision Color.** Assumed to match the Shine 5; not checked.
+1. **Shine 5 and Vision Color.** Assumed to match the Shine Color; not checked.
 2. **XPointer inside a text node.** Checked at chapter starts only (see
    [KOReader positions](#verified-findings)): KOReader keeps `koboSpan`
    elements and the kepub wrappers. Still open: whether character offsets
@@ -204,4 +204,4 @@ exactly the case the later manual mapping is for.
   paragraph (offset > 0), for open question 2. Paging alone does not give
   one; highlights of the same words in the probe book Book P do (see the
   [test fixtures](tests/fixtures/README.md))
-- Optional: a database from a Shine Color or Vision Color
+- Optional: a database from a Shine 5 or Vision Color

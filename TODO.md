@@ -33,7 +33,7 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     läuft daher auf Firmware 4.x und 5.x; `strayrose/nickeltc` bleibt für das
     Plugin (N2/N4). Der CI-Job `check` baut es, prüft es mit `file` und
     `qemu-arm` und lädt es als Artefakt `nickelinksync-armv7-musleabihf` hoch.
-  - [x] **du:** Testlauf auf Clara BW (4.46) und Shine 5 (5.18): Programm aus
+  - [x] **du:** Testlauf auf Clara BW (4.46) und Shine Color (5.18): Programm aus
     dem CI-Artefakt nach `.adds/NickelInkSync/` kopiert, `--version` gibt
     `nickelinksync 0.1.0` aus.
 - [x] **G4 Testdaten** · PR #9
@@ -43,7 +43,7 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     Platzhalter-EPUBs mit der Struktur der drei Bücher
     (`tools/make_epub_fixture.py`) und ein Test, der die Fixtures lädt. Siehe
     [`tests/fixtures/README.md`](tests/fixtures/README.md).
-  - [x] **du:** Gekürzte Daten vom Clara BW und Shine 5 durchgesehen und
+  - [x] **du:** Gekürzte Daten vom Clara BW und Shine Color durchgesehen und
     freigegeben, bevor sie ins Repo kamen. Es ging um deine Lesedaten.
 
 ## Kern
@@ -125,11 +125,11 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     und Öffnen (`pull`) aufruft; Paket `KoboRoot.tgz`.
   - [ ] **du:** Test auf dem Clara BW.
 - [ ] **N3 Symbole für Tolino 5.18 (Qt6)**
-  - [ ] **du:** Firmware-Update 5.18 für den Shine 5 besorgen.
+  - [ ] **du:** Firmware-Update 5.18 für den Shine Color besorgen.
   - [ ] **ich:** Dieselben Symbole in der Qt6-Fassung suchen.
 - [ ] **N4 Plugin Qt6**
   - [ ] **ich:** Qt6-Build, Paket `Kobo.tgz`.
-  - [ ] **du:** Test auf dem Shine 5.
+  - [ ] **du:** Test auf dem Shine Color.
 
 ## Optional (später)
 

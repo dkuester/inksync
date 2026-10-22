@@ -200,8 +200,8 @@ fn kobo_clarabw_4_46() {
 }
 
 #[test]
-fn tolino_shine5_5_18() {
-  let db = load("tolino-shine5-5.18.sql");
+fn tolino_shinecolor_5_18() {
+  let db = load("tolino-shinecolor-5.18.sql");
   assert_eq!(db_version(&db), 220);
   let tables = tolino_tables(&db);
   assert_eq!(
@@ -337,7 +337,7 @@ fn kobo_placeholder_books() {
 
 #[test]
 fn tolino_placeholder_books() {
-  let db = load("tolino-shine5-5.18-placeholder-books.sql");
+  let db = load("tolino-shinecolor-5.18-placeholder-books.sql");
   let books = sideloaded_books(&db);
   assert_eq!(books.len(), 3);
   // The Tolino reads a kepub as a plain EPUB.

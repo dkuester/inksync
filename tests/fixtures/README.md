@@ -11,9 +11,9 @@ derive from them.
 | Fixture | Device | Firmware | DbVersion | Books |
 |---|---|---|---|---|
 | [`kobo-clarabw-4.46.sql`](db/kobo-clarabw-4.46.sql) | Kobo Clara BW | 4.46.23836 | 176 | Book A, Book B (kepub) |
-| [`tolino-shine5-5.18.sql`](db/tolino-shine5-5.18.sql) | Tolino Shine 5 | 5.18.264769 | 220 | Book A, Book C (plain EPUB) |
+| [`tolino-shinecolor-5.18.sql`](db/tolino-shinecolor-5.18.sql) | Tolino Shine Color | 5.18.264769 | 220 | Book A, Book C (plain EPUB) |
 | [`kobo-clarabw-4.46-placeholder-books.sql`](db/kobo-clarabw-4.46-placeholder-books.sql) | Kobo Clara BW | 4.46.23836 | 176 | the three EPUB fixtures below |
-| [`tolino-shine5-5.18-placeholder-books.sql`](db/tolino-shine5-5.18-placeholder-books.sql) | Tolino Shine 5 | 5.18.264769 | 220 | the three EPUB fixtures below |
+| [`tolino-shinecolor-5.18-placeholder-books.sql`](db/tolino-shinecolor-5.18-placeholder-books.sql) | Tolino Shine Color | 5.18.264769 | 220 | the three EPUB fixtures below |
 
 Book A is the same title on both devices (as two different files: a kepub on
 the Kobo, an EPUB on the Tolino), so cross-device tests can use it.
@@ -157,8 +157,8 @@ They only read them (the databases as an immutable SQLite URI).
 ```sh
 tools/make_db_fixture.py clarabw-KoboReader.sqlite tests/fixtures/db/kobo-clarabw-4.46.sql \
   --names a,b --device "Kobo Clara BW, firmware 4.46.23836"
-tools/make_db_fixture.py shine5-KoboReader.sqlite tests/fixtures/db/tolino-shine5-5.18.sql \
-  --names a,c --device "Tolino Shine 5, firmware 5.18.264769"
+tools/make_db_fixture.py shinecolor-KoboReader.sqlite tests/fixtures/db/tolino-shinecolor-5.18.sql \
+  --names a,c --device "Tolino Shine Color, firmware 5.18.264769"
 tools/make_epub_fixture.py <book a, kepub> tests/fixtures/epub/book-a.kepub.epub --name a \
   --keep OEBPS/xhtml/xhtml-0-81.xhtml --position 'OEBPS/xhtml/xhtml-0-81.xhtml#kobo.1.172'
 tools/make_epub_fixture.py <book a, epub> tests/fixtures/epub/book-a.epub --name a \
