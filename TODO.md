@@ -83,6 +83,9 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     zählt UTF-8-Bytes (`SCOPE.md`).
   - [ ] **ich:** Kobo-Span → XPointer und Adobe-Point → XPointer, jeweils auch
     rückwärts.
+  - [ ] **ich:** Zweites Probebuch für Umlaute, Zeichen mit 3 Bytes (`–`, `…`)
+    und CDATA, unter eigenem Namen (**Book Q**, `book-q*.epub`), damit es nicht
+    mit Book P verwechselt wird.
   - [x] **du:** Book P (`tests/fixtures/epub/book-p*.epub`) auf Kobo, Tolino
     und in KOReader laden und die acht Zielwörter markieren (Liste in
     `tests/fixtures/README.md`), dann beide Datenbanken und die `.sdr`-Ordner
@@ -142,7 +145,9 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
 - [ ] **O3 Einstellungsdialog** auf dem Gerät.
 - [ ] **O4 Sync-Status** im Buchmenü, plus „Jetzt synchronisieren“.
 - [ ] **O5 Geräteübersicht** in `status`: alle Positionen eines Buchs nebeneinander.
-- [ ] **O6 Markierungen auf Kobo 5.x/6.x nachtesten** · **du:** Book P auf einem
-  Kobo mit Firmware 5.18 oder 6.x markieren. Auf 4.46 zeigt Nickel Markierungen
-  im kepub verschoben und im EPUB teils gar nicht an (gespeichert wird
-  richtig); auf dem Tolino mit 5.18 tritt das nicht auf.
+- [ ] **O6 Markierungen auf Kobo 5.x/6.x nachtesten** · `[!]` erst, wenn alle
+  Tests mit Kobo 4.x durch sind: Das Update auf 5.18+ kostet das einzige
+  4.x-Gerät (Clara BW). · **du:** Book P auf dem Kobo mit Firmware 5.18 oder
+  6.x markieren. Auf 4.46 zeigt Nickel Markierungen im kepub verschoben und im
+  EPUB teils gar nicht an (gespeichert wird richtig); auf dem Tolino mit 5.18
+  tritt das nicht auf.
