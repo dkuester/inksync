@@ -425,8 +425,8 @@ const PROBE_WORDS: [&str; 8] = [
 ];
 
 #[test]
-fn probe_book_kepub_spans_count_characters() {
-  let db = load("kobo-clarabw-4.46-probe-book.sql");
+fn probe_book_kepub_spans() {
+  let db = load("kobo-clarabw-4.46-probe-books.sql");
   let expected = [
     ("kobo.2.1", 42),
     ("kobo.3.1", 18),
@@ -465,8 +465,8 @@ fn probe_book_adobe_points_count_utf8_bytes() {
     ("/1/4/14/1", 16),
   ];
   for (fixture, p7w03) in [
-    ("kobo-clarabw-4.46-probe-book.sql", ("/1/4/16/1", 13)),
-    ("tolino-shinecolor-5.18-probe-book.sql", ("/1/4/16/3", 7)),
+    ("kobo-clarabw-4.46-probe-books.sql", ("/1/4/16/1", 13)),
+    ("tolino-shinecolor-5.18-probe-books.sql", ("/1/4/16/3", 7)),
   ] {
     let db = load(fixture);
     let got = highlights(&db, "book-p.epub");
@@ -522,5 +522,140 @@ fn probe_book_koreader_counts_collapsed_characters() {
       .map(|(w, x)| (w.to_string(), format!("{prefix}/{x}")))
       .collect();
     assert_eq!(got, want, "{sdr}");
+  }
+}
+
+// Book Q: umlauts, three- and four-byte characters, CDATA, leading and
+// repeated spaces, an entity with a tab, a combining accent.
+const PROBE_WORDS_Q: [&str; 8] = [
+  "q1w03", "q2w03", "q3w03", "q4w02", "q5w04", "q6w03", "q7w03", "q8w02",
+];
+
+#[test]
+fn probe_book_q_adobe_points_count_utf8_bytes() {
+  // Every multi-byte character counts its UTF-8 length (ä 2, – 3, 𝄞 4), the
+  // CDATA section is a node of its own, whitespace and the tab count as is.
+  let expected = [
+    ("/1/4/4/1", 27),
+    ("/1/4/6/1", 20),
+    ("/1/4/8/1", 18),
+    ("/1/4/10/1", 11),
+    ("/1/4/12/3", 1),
+    ("/1/4/14/1", 18),
+    ("/1/4/16/1", 14),
+    ("/1/4/18/1", 13),
+  ];
+  let db = load("tolino-shinecolor-5.18-probe-books.sql");
+  let got = highlights(&db, "book-q.epub");
+  assert_eq!(got.len(), 8);
+  for ((word, path, offset), (want, (steps, want_offset))) in
+    got.iter().zip(PROBE_WORDS_Q.iter().zip(expected))
+  {
+    assert_eq!(word, want);
+    assert_eq!(
+      *path,
+      format!("OEBPS/text/probe.xhtml#point({steps}"),
+      "{word}"
+    );
+    assert_eq!(*offset, want_offset, "{word}");
+  }
+}
+
+#[test]
+fn probe_book_q_koreader_counts_code_points() {
+  // XPointer offsets count code points (𝄞 = 1, the combining accent = 1)
+  // after collapsing whitespace runs; leading spaces become one space. The
+  // CDATA section is a text() node of its own (q5w04 in text()[3]).
+  let base = "/body[1]/DocFragment[2]/body[1]";
+  let epub = [
+    "p[1]/text()[1].22",
+    "p[2]/text()[1].16",
+    "p[3]/text()[1].14",
+    "p[4]/text()[1].8",
+    "p[5]/text()[3].1",
+    "p[6]/text()[1].13",
+    "p[7]/text()[1].14",
+    "p[8]/text()[1].12",
+  ];
+  let kepub = [
+    "p[1]/span[1]/text()[1].22",
+    "p[2]/span[1]/text()[1].16",
+    "p[3]/span[1]/text()[1].14",
+    "p[4]/span[1]/text()[1].8",
+    "p[5]/span[2]/text()[1].1",
+    "p[6]/span[1]/text()[1].13",
+    "p[7]/span[1]/text()[1].14",
+    "p[8]/span[1]/text()[1].12",
+  ];
+  for (sdr, prefix, expected) in [
+    ("book-q.sdr", base.to_string(), epub),
+    ("book-q.kepub.sdr", format!("{base}/div[1]/div[1]"), kepub),
+  ] {
+    let got = koreader_highlights(sdr);
+    let want: Vec<_> = PROBE_WORDS_Q
+      .iter()
+      .zip(expected)
+      .map(|(w, x)| (w.to_string(), format!("{prefix}/{x}")))
+      .collect();
+    assert_eq!(got, want, "{sdr}");
+  }
+  // KOReader's CFI counts UTF-16 units instead: 𝄞 is two, so q4w02 is at 9.
+  let path = format!(
+    "{}/tests/fixtures/koreader/book-q.sdr/metadata.epub.lua",
+    env!("CARGO_MANIFEST_DIR")
+  );
+  let lua = std::fs::read_to_string(path).unwrap();
+  assert!(lua.contains("\"epubcfi(/6/4!/4/10,/1:9,/1:14)\""));
+}
+
+#[test]
+fn probe_book_q_kobo() {
+  let db = load("kobo-clarabw-4.46-probe-books.sql");
+  // Kepub span offsets count UTF-16 units: 𝄞 is two (q4w02 at 9, KOReader's
+  // XPointer says 8); umlauts, – and the combining accent are one each, and
+  // whitespace counts as is (q6w03 at 18).
+  let spans = [
+    ("kobo.2.1", 22),
+    ("kobo.3.1", 16),
+    ("kobo.4.1", 14),
+    ("kobo.5.1", 9),
+    ("kobo.6.2", 1),
+    ("kobo.7.1", 18),
+    ("kobo.8.1", 14),
+    ("kobo.9.1", 12),
+  ];
+  let got = highlights(&db, "book-q.kepub.epub");
+  assert_eq!(got.len(), 8);
+  for ((word, path, offset), (want, (span, want_offset))) in
+    got.iter().zip(PROBE_WORDS_Q.iter().zip(spans))
+  {
+    assert_eq!(word, want);
+    assert_eq!(path.replace('\\', ""), format!("span#{span}"), "{word}");
+    assert_eq!(*offset, want_offset, "{word}");
+  }
+  // Plain EPUB: UTF-8 bytes as on the Tolino, but Kobo 4.46 skips the CDATA
+  // section like a comment and joins the text around it (q5w04 at /1:20).
+  let points = [
+    ("/1/4/4/1", 27),
+    ("/1/4/6/1", 20),
+    ("/1/4/8/1", 18),
+    ("/1/4/10/1", 11),
+    ("/1/4/12/1", 20),
+    ("/1/4/14/1", 18),
+    ("/1/4/16/1", 14),
+    ("/1/4/18/1", 13),
+  ];
+  let got = highlights(&db, "book-q.epub");
+  assert_eq!(got.len(), 8);
+  for ((word, path, offset), (want, (steps, want_offset))) in
+    got.iter().zip(PROBE_WORDS_Q.iter().zip(points))
+  {
+    assert_eq!(word, want);
+    assert_eq!(
+      *path,
+      format!("OEBPS/text/probe.xhtml#point({steps}"),
+      "{word}"
+    );
+    assert_eq!(*offset, want_offset, "{word}");
   }
 }

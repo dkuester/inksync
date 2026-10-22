@@ -13,8 +13,8 @@ derive from them.
 | [`kobo-clarabw-4.46.sql`](db/kobo-clarabw-4.46.sql) | Kobo Clara BW | 4.46.23836 | 176 | Book A, Book B (kepub) |
 | [`tolino-shinecolor-5.18.sql`](db/tolino-shinecolor-5.18.sql) | Tolino Shine Color | 5.18.264769 | 220 | Book A, Book C (plain EPUB) |
 | [`kobo-clarabw-4.46-placeholder-books.sql`](db/kobo-clarabw-4.46-placeholder-books.sql) | Kobo Clara BW | 4.46.23836 | 176 | the three EPUB fixtures below |
-| [`kobo-clarabw-4.46-probe-book.sql`](db/kobo-clarabw-4.46-probe-book.sql) | Kobo Clara BW | 4.46.23836 | 176 | Book P (kepub and EPUB) with highlights |
-| [`tolino-shinecolor-5.18-probe-book.sql`](db/tolino-shinecolor-5.18-probe-book.sql) | Tolino Shine Color | 5.18.264769 | 220 | Book P (EPUB) with highlights |
+| [`kobo-clarabw-4.46-probe-books.sql`](db/kobo-clarabw-4.46-probe-books.sql) | Kobo Clara BW | 4.46.23836 | 176 | Book P (kepub and EPUB) with highlights |
+| [`tolino-shinecolor-5.18-probe-books.sql`](db/tolino-shinecolor-5.18-probe-books.sql) | Tolino Shine Color | 5.18.264769 | 220 | Book P and Book Q (EPUB) with highlights |
 | [`tolino-shinecolor-5.18-placeholder-books.sql`](db/tolino-shinecolor-5.18-placeholder-books.sql) | Tolino Shine Color | 5.18.264769 | 220 | the three EPUB fixtures below |
 
 Book A is the same title on both devices (as two different files: a kepub on
@@ -152,10 +152,64 @@ was changed a few times. Trust the database, not the screen. The Tolino
   are two bytes each (p2w04, p4w03). Whitespace is counted as is (p6w03).
 - Kobo 4.46 skips the comment and joins the text around it (`/1:13`), the
   Tolino 5.18 counts the comment as a node (`/3:7`).
-- Kobo span offsets count characters, whitespace as is.
+- Kobo span offsets count characters (UTF-16 units, see Book Q), whitespace as is.
 - KOReader counts characters after collapsing whitespace (p6w03: 12) and
   starts a new `text()` after a comment; its CFI joins the text instead
   (`epubcfi(/6/4!/4/16,/1:13,…)`).
+
+## Second probe book (`epub/book-q*.epub`)
+
+Book Q is made by the same script (`make_probe_epub.py --book q`), with its
+own name and `q…` words so it cannot be confused with Book P. Its probe
+chapter covers what Book P left open: umlauts and `ß`, three-byte characters
+(`–`, `…`, `„`, `“`), a four-byte character (`𝄞`, two UTF-16 units), CDATA,
+leading and repeated spaces, `&lt;`/`&gt;` with a tab, and a combining
+accent (`Cafe` + U+0301). The device may draw `𝄞` as a box; that does not
+matter, only the word after it is highlighted.
+
+**To test:** as for Book P, with the eight words below, on the Kobo
+(`book-q.kepub.epub` and `book-q.epub`), the Tolino (`book-q.epub`) and in
+KOReader (both).
+
+Predicted with the rules found with Book P (Adobe point in UTF-8 bytes,
+Kobo span in characters, KOReader in characters after collapsing whitespace
+runs); where Book Q breaks a rule, the highlights show it:
+
+| Word | After | EPUB: Adobe point | kepub: span, offset | KOReader EPUB | KOReader kepub |
+|---|---|---|---|---|---|
+| `q1w03` | umlauts and ß (two bytes each) | `point(/1/4/4/1:27)` | `kobo.2.1`, 22 | `/body[1]/DocFragment[2]/body[1]/p[1]/text()[1].22` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[1]/span[1]/text()[1].22` |
+| `q2w03` | `–` and `…` (three bytes each) | `point(/1/4/6/1:20)` | `kobo.3.1`, 16 | `/body[1]/DocFragment[2]/body[1]/p[2]/text()[1].16` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[2]/span[1]/text()[1].16` |
+| `q3w03` | typographic quotes `„` `“` (three bytes each) | `point(/1/4/8/1:18)` | `kobo.4.1`, 14 | `/body[1]/DocFragment[2]/body[1]/p[3]/text()[1].14` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[3]/span[1]/text()[1].14` |
+| `q4w02` | a four-byte character (`𝄞`, two UTF-16 units) | `point(/1/4/10/1:11)` | `kobo.5.1`, 8 | `/body[1]/DocFragment[2]/body[1]/p[4]/text()[1].8` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[4]/span[1]/text()[1].8` |
+| `q5w04` | a CDATA section | `point(/1/4/12/3:1)` | `kobo.6.2`, 1 | `/body[1]/DocFragment[2]/body[1]/p[5]/text()[2].1` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[5]/span[2]/text()[1].1` |
+| `q6w03` | leading and repeated spaces | `point(/1/4/14/1:18)` | `kobo.7.1`, 18 | `/body[1]/DocFragment[2]/body[1]/p[6]/text()[1].13` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[6]/span[1]/text()[1].13` |
+| `q7w03` | `&lt;`, `&gt;` and a tab | `point(/1/4/16/1:14)` | `kobo.8.1`, 14 | `/body[1]/DocFragment[2]/body[1]/p[7]/text()[1].14` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[7]/span[1]/text()[1].14` |
+| `q8w02` | `e` with a combining accent | `point(/1/4/18/1:13)` | `kobo.9.1`, 12 | `/body[1]/DocFragment[2]/body[1]/p[8]/text()[1].12` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[8]/span[1]/text()[1].12` |
+
+**Results** (2026-10-22): all three match every prediction except where
+noted; stored in `kobo-clarabw-4.46-probe-books.sql`,
+`tolino-shinecolor-5.18-probe-books.sql` and `koreader/book-q*.sdr/`.
+
+- **Kobo kepub span offsets count UTF-16 units**: q4w02 at 9 after `𝄞`
+  (predicted 8); everything else as predicted, whitespace as is (q6w03 at 18).
+- Kobo plain EPUB: UTF-8 bytes as on the Tolino; the CDATA section is
+  skipped and the text joined, like a comment on 4.46 (q5w04 at
+  `/1/4/12/1:20`).
+
+- Tolino Adobe points: all eight as predicted. UTF-8 bytes hold for umlauts,
+  three- and four-byte characters; the CDATA section is a node of its own
+  (`/1/4/12/3:1`); leading spaces, repeated spaces and the tab count as is.
+- KOReader XPointer: offsets in code points (`𝄞` = 1, the combining accent
+  = 1) after collapsing whitespace runs; leading spaces become one space
+  (q6w03 at 13). **CDATA is a `text()` node of its own**: q5w04 is in
+  `p[5]/text()[3].1`, not `text()[2]`.
+- **KOReader's CFI counts UTF-16 units**: q4w02 at `/1:9` (the XPointer
+  says 8), and it joins the text across the CDATA section (`/1:20`).
+
+On the Kobo 4.46 only 5 of the 16 highlights were stored on the first try,
+although some of the missing ones were shown (q7w03 in the kepub, shifted);
+the second try stored the rest. The default font KF Libron has no glyph for
+`𝄞`. Neither affects the stored offsets.
 
 ## KOReader state (`koreader/`)
 
