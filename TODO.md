@@ -77,18 +77,19 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     hat die Kapitelzeile `VolumeIndex` 80) und Titan 2 (Spine-Index 39, ohne
     ToC-Eintrag und ohne Kapitelzeile).
 - [ ] **K4 Position genau**
-  - [~] **ich:** Aus der Datei ablesen, welchen DOM-Pfad KOReader erwartet
-    (Leerraum, `koboSpan`-Elemente). Am Kapitelanfang geprüft: KOReader
-    behält `koboSpan` und die kepub-Hüllen (`SCOPE.md`). Offen: Offsets
-    mitten im Text.
+  - [x] **ich:** Aus der Datei ablesen, welchen DOM-Pfad KOReader erwartet
+    (Leerraum, `koboSpan`-Elemente): KOReader behält `koboSpan` und die
+    kepub-Hüllen, fasst Leerraum zusammen und zählt Zeichen; der Adobe-Point
+    zählt UTF-8-Bytes (`SCOPE.md`).
   - [ ] **ich:** Kobo-Span → XPointer und Adobe-Point → XPointer, jeweils auch
     rückwärts.
-  - [ ] **du:** Book P (`tests/fixtures/epub/book-p*.epub`) auf Kobo, Tolino
+  - [x] **du:** Book P (`tests/fixtures/epub/book-p*.epub`) auf Kobo, Tolino
     und in KOReader laden und die acht Zielwörter markieren (Liste in
     `tests/fixtures/README.md`), dann beide Datenbanken und die `.sdr`-Ordner
     kopieren.
-  - [ ] **ich:** Markierungen auslesen (`make_db_fixture.py --bookmarks`) und
-    mit den erwarteten Offsets vergleichen.
+  - [x] **ich:** Markierungen auslesen (`make_db_fixture.py --bookmarks`) und
+    mit den erwarteten Offsets vergleichen (Ergebnis in
+    `tests/fixtures/README.md`).
   - [ ] **du:** Gegenprobe: Ein von uns berechneter XPointer öffnet in KOReader
     die richtige Stelle.
 - [ ] **K5 KOSync-Client**

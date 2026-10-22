@@ -157,10 +157,25 @@ kepubify).
 
 **Adobe point → DOM node** (Tolino): `point(/a/b/c…:offset)` is a path of
 1-based indices over **all** child nodes, whitespace text nodes included,
-where `/1` is the `html` element; `offset` is a character offset into the
-final text node. Checked on two books: `/1/2/1/1:0` hits the chapter heading
-in *Heat 2*, `/1/4/16/1:356` hits mid-paragraph text in *Star Trek Titan 2*.
-Two samples, so the edge cases (entities, CDATA, comments) are still open.
+where `/1` is the `html` element; `offset` is a **UTF-8 byte offset** into
+the final text node (a no-break space or soft hyphen counts 2, so does every
+umlaut), with whitespace counted as is. Comments differ by firmware: Kobo
+4.46 skips them and joins the text around them, Tolino 5.18 counts them as
+nodes. Checked on two books (`/1/2/1/1:0` hits the chapter heading in
+*Heat 2*, `/1/4/16/1:356` mid-paragraph text in *Star Trek Titan 2*) and with
+highlights in the probe book Book P on both devices.
+
+**Offsets inside a text node** (highlights of the same eight words in Book P,
+see the [test fixtures](tests/fixtures/README.md)): node paths agree
+everywhere; only the offsets need converting.
+
+| | Unit | Whitespace | Comment |
+|---|---|---|---|
+| Kobo span (`StartOffset`) | characters | as is | — (spans split there) |
+| Adobe point, Kobo 4.46 | UTF-8 bytes | as is | skipped, text joined |
+| Adobe point, Tolino 5.18 | UTF-8 bytes | as is | counted as a node |
+| KOReader XPointer | characters | collapsed (`\n    ` = 1) | splits `text()` |
+| KOReader CFI | characters | collapsed | skipped, text joined |
 
 **KOReader positions** (KOReader 2026.07, `cre_dom_version` 20260812):
 `metadata.epub.lua` holds `last_xpointer` and also `last_epubcfi`. Spine
@@ -189,19 +204,17 @@ exactly the case the later manual mapping is for.
 ## Open technical questions
 
 1. **Shine 5 and Vision Color.** Assumed to match the Shine Color; not checked.
-2. **XPointer inside a text node.** Checked at chapter starts only (see
-   [KOReader positions](#verified-findings)): KOReader keeps `koboSpan`
-   elements and the kepub wrappers. Still open: whether character offsets
-   inside a text node count the same in Nickel's Adobe point and in
-   KOReader (whitespace, entities, soft hyphens).
+2. **Offsets beyond the probe cases.** The unit and whitespace rules (see
+   [Verified findings](#verified-findings)) come from ASCII text plus a
+   no-break space and a soft hyphen. Not yet checked: three-byte characters
+   (`–`, `…`), umlauts in a highlight, CDATA, and how KOReader collapses
+   whitespace at the start and end of a block.
 3. **Write-back.** Writing the position into the database only works safely
    while Nickel is not running (USB mode). The plugin path needs a libnickel
    symbol to jump to a position, on both Qt5 and Qt6 builds.
 
 ## Test data still needed
 
-- A device position and a KOReader position at the same spot inside a
-  paragraph (offset > 0), for open question 2. Paging alone does not give
-  one; highlights of the same words in the probe book Book P do (see the
-  [test fixtures](tests/fixtures/README.md))
+- Highlights in a probe book with umlauts and three-byte characters, for
+  open question 2 (Book P covers ASCII, no-break space and soft hyphen)
 - Optional: a database from a Shine 5 or Vision Color

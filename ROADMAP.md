@@ -38,6 +38,8 @@ L = a week or more, including verification.
       plain EPUB; KOReader `metadata.epub.lua` with partial MD5, XPointer and
       CFI; Kobo span and Adobe point matched to KOReader's XPointer at a chapter
       start (`tests/fixtures/koreader/`)
+- [x] Probe book Book P highlighted on Clara BW, Shine Color and KOReader:
+      offset rules for Kobo spans, Adobe points and KOReader XPointer/CFI
 
 ## Quick wins
 
@@ -62,9 +64,10 @@ L = a week or more, including verification.
   `href#point(...)` → spine index → `DocFragment[n]`, percentage as fallback.
   Verified on both reference devices.
 - **Position translation, precise** (M–L): Kobo span and Adobe point ↔
-  full XPointer. KOReader's DOM path is confirmed at chapter starts (it keeps
-  `koboSpan` elements and the kepub wrappers); character offsets inside a
-  text node still need a check: a computed XPointer opened in KOReader.
+  full XPointer. Node paths and offset rules are confirmed with highlights
+  in the probe book (Adobe point: UTF-8 bytes; KOReader: characters after
+  whitespace collapsing); open: three-byte characters and umlauts, and the
+  final check that a computed XPointer opens at the right place in KOReader.
 - **KOSync client + `push`/`pull`/`status` CLI** (M): auth headers, progress
   GET/PUT, newest-wins conflict rule, dry-run by default for anything that
   writes. Verification needs a reachable koreader-sync-server.
