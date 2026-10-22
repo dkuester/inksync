@@ -157,6 +157,35 @@ was changed a few times. Trust the database, not the screen. The Tolino
   starts a new `text()` after a comment; its CFI joins the text instead
   (`epubcfi(/6/4!/4/16,/1:13,…)`).
 
+## Second probe book (`epub/book-q*.epub`)
+
+Book Q is made by the same script (`make_probe_epub.py --book q`), with its
+own name and `q…` words so it cannot be confused with Book P. Its probe
+chapter covers what Book P left open: umlauts and `ß`, three-byte characters
+(`–`, `…`, `„`, `“`), a four-byte character (`𝄞`, two UTF-16 units), CDATA,
+leading and repeated spaces, `&lt;`/`&gt;` with a tab, and a combining
+accent (`Cafe` + U+0301). The device may draw `𝄞` as a box; that does not
+matter, only the word after it is highlighted.
+
+**To test:** as for Book P, with the eight words below, on the Kobo
+(`book-q.kepub.epub` and `book-q.epub`), the Tolino (`book-q.epub`) and in
+KOReader (both).
+
+Predicted with the rules found with Book P (Adobe point in UTF-8 bytes,
+Kobo span in characters, KOReader in characters after collapsing whitespace
+runs); where Book Q breaks a rule, the highlights show it:
+
+| Word | After | EPUB: Adobe point | kepub: span, offset | KOReader EPUB | KOReader kepub |
+|---|---|---|---|---|---|
+| `q1w03` | umlauts and ß (two bytes each) | `point(/1/4/4/1:27)` | `kobo.2.1`, 22 | `/body[1]/DocFragment[2]/body[1]/p[1]/text()[1].22` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[1]/span[1]/text()[1].22` |
+| `q2w03` | `–` and `…` (three bytes each) | `point(/1/4/6/1:20)` | `kobo.3.1`, 16 | `/body[1]/DocFragment[2]/body[1]/p[2]/text()[1].16` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[2]/span[1]/text()[1].16` |
+| `q3w03` | typographic quotes `„` `“` (three bytes each) | `point(/1/4/8/1:18)` | `kobo.4.1`, 14 | `/body[1]/DocFragment[2]/body[1]/p[3]/text()[1].14` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[3]/span[1]/text()[1].14` |
+| `q4w02` | a four-byte character (`𝄞`, two UTF-16 units) | `point(/1/4/10/1:11)` | `kobo.5.1`, 8 | `/body[1]/DocFragment[2]/body[1]/p[4]/text()[1].8` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[4]/span[1]/text()[1].8` |
+| `q5w04` | a CDATA section | `point(/1/4/12/3:1)` | `kobo.6.2`, 1 | `/body[1]/DocFragment[2]/body[1]/p[5]/text()[2].1` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[5]/span[2]/text()[1].1` |
+| `q6w03` | leading and repeated spaces | `point(/1/4/14/1:18)` | `kobo.7.1`, 18 | `/body[1]/DocFragment[2]/body[1]/p[6]/text()[1].13` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[6]/span[1]/text()[1].13` |
+| `q7w03` | `&lt;`, `&gt;` and a tab | `point(/1/4/16/1:14)` | `kobo.8.1`, 14 | `/body[1]/DocFragment[2]/body[1]/p[7]/text()[1].14` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[7]/span[1]/text()[1].14` |
+| `q8w02` | `e` with a combining accent | `point(/1/4/18/1:13)` | `kobo.9.1`, 12 | `/body[1]/DocFragment[2]/body[1]/p[8]/text()[1].12` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[8]/span[1]/text()[1].12` |
+
 ## KOReader state (`koreader/`)
 
 `metadata.epub.lua` from KOReader 2026.07 on macOS (`cre_dom_version`
