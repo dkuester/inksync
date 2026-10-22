@@ -142,6 +142,11 @@ EPUB), the Tolino (EPUB) and in KOReader (both); stored in the
 
 ¹ The selection started at the space before the word (`/1/4/14/1:15`).
 
+Highlighting on the Kobo 4.46 is fiddly: some highlights were shown a few
+characters off in the book afterwards, although the stored rows are correct.
+This looks like a display bug in firmware 4.46.x; trust the database, not
+the screen.
+
 - Adobe point offsets count **UTF-8 bytes**: no-break space and soft hyphen
   are two bytes each (p2w04, p4w03). Whitespace is counted as is (p6w03).
 - Kobo 4.46 skips the comment and joins the text around it (`/1:13`), the
