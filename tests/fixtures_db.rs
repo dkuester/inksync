@@ -200,8 +200,8 @@ fn kobo_clarabw_4_46() {
 }
 
 #[test]
-fn tolino_shine5_5_18() {
-  let db = load("tolino-shine5-5.18.sql");
+fn tolino_shinecolor_5_18() {
+  let db = load("tolino-shinecolor-5.18.sql");
   assert_eq!(db_version(&db), 220);
   let tables = tolino_tables(&db);
   assert_eq!(
@@ -337,7 +337,7 @@ fn kobo_placeholder_books() {
 
 #[test]
 fn tolino_placeholder_books() {
-  let db = load("tolino-shine5-5.18-placeholder-books.sql");
+  let db = load("tolino-shinecolor-5.18-placeholder-books.sql");
   let books = sideloaded_books(&db);
   assert_eq!(books.len(), 3);
   // The Tolino reads a kepub as a plain EPUB.
@@ -358,4 +358,169 @@ fn tolino_placeholder_books() {
     koreader_value("book-a.sdr", "last_epubcfi"),
     "epubcfi(/6/164!/4/2[aid_191]/1:0)"
   );
+}
+
+/// Highlights of Book P as (word, start container, start offset of the
+/// word), sorted by word. A selection that starts at the space before the
+/// word is moved onto the word, so only the device's counting is compared.
+fn highlights(db: &Connection, file: &str) -> Vec<(String, String, i64)> {
+  let mut stmt = db
+    .prepare(
+      "SELECT Text, StartContainerPath, StartOffset FROM Bookmark
+       WHERE VolumeID = ?1 AND Type = 'highlight' ORDER BY trim(Text)",
+    )
+    .unwrap();
+  stmt
+    .query_map([format!("file:///mnt/onboard/Books/{file}")], |row| {
+      let text: String = row.get(0)?;
+      let path: String = row.get(1)?;
+      let offset: i64 = row.get(2)?;
+      let lead = (text.len() - text.trim_start().len()) as i64;
+      // Adobe points carry the offset in the path; kepub spans in StartOffset.
+      let (path, offset) = match path.rsplit_once(':') {
+        Some((p, o)) if p.contains("#point(") => {
+          let o: i64 = o.trim_end_matches(')').parse().unwrap();
+          (p.to_string(), o + lead)
+        }
+        _ => (path, offset + lead),
+      };
+      Ok((text.trim().to_string(), path, offset))
+    })
+    .unwrap()
+    .collect::<Result<_, _>>()
+    .unwrap()
+}
+
+/// `pos0` of each KOReader highlight as (word, XPointer), sorted by word.
+fn koreader_highlights(sdr: &str) -> Vec<(String, String)> {
+  let path = format!(
+    "{}/tests/fixtures/koreader/{sdr}/metadata.epub.lua",
+    env!("CARGO_MANIFEST_DIR")
+  );
+  let text = std::fs::read_to_string(&path).unwrap();
+  let value = |line: &str, key: &str| {
+    line
+      .trim()
+      .strip_prefix(&format!("[\"{key}\"] = \""))
+      .and_then(|v| v.strip_suffix("\","))
+      .map(str::to_string)
+  };
+  let mut pos0 = None;
+  let mut out = Vec::new();
+  for line in text.lines() {
+    if let Some(v) = value(line, "pos0") {
+      pos0 = Some(v);
+    } else if let Some(word) = value(line, "text") {
+      out.push((word, pos0.take().expect("pos0 before text")));
+    }
+  }
+  out.sort();
+  out
+}
+
+// Book P (tests/fixtures/README.md): the same eight words highlighted on the
+// Kobo (kepub and EPUB), the Tolino (EPUB) and in KOReader (both).
+const PROBE_WORDS: [&str; 8] = [
+  "p1w08", "p2w04", "p3w03", "p4w03", "p5w03", "p5w04", "p6w03", "p7w03",
+];
+
+#[test]
+fn probe_book_kepub_spans_count_characters() {
+  let db = load("kobo-clarabw-4.46-probe-book.sql");
+  let expected = [
+    ("kobo.2.1", 42),
+    ("kobo.3.1", 18),
+    ("kobo.4.1", 14),
+    ("kobo.5.1", 13),
+    ("kobo.6.2", 6),
+    ("kobo.6.3", 1),
+    ("kobo.7.1", 16),
+    ("kobo.8.2", 7),
+  ];
+  let got = highlights(&db, "book-p.kepub.epub");
+  for ((word, path, offset), (want, (span, want_offset))) in
+    got.iter().zip(PROBE_WORDS.iter().zip(expected))
+  {
+    assert_eq!(word, want);
+    // Nickel escapes the dots of the ID: span#kobo\.2\.1
+    assert_eq!(path.replace('\\', ""), format!("span#{span}"), "{word}");
+    assert_eq!(*offset, want_offset, "{word}");
+  }
+  assert_eq!(got.len(), 8);
+}
+
+#[test]
+fn probe_book_adobe_points_count_utf8_bytes() {
+  // No-break space and soft hyphen are two bytes in UTF-8: p2w04 and p4w03
+  // start 2 and 1 later than in characters. Whitespace is not collapsed
+  // (p6w03). Kobo 4.46 skips the comment and joins the text around it
+  // (p7w03 at /1:13), the Tolino 5.18 counts the comment as a node (/3:7).
+  let common = [
+    ("/1/4/4/1", 42),
+    ("/1/4/6/1", 20),
+    ("/1/4/8/1", 14),
+    ("/1/4/10/1", 14),
+    ("/1/4/12/2/1", 6),
+    ("/1/4/12/3", 1),
+    ("/1/4/14/1", 16),
+  ];
+  for (fixture, p7w03) in [
+    ("kobo-clarabw-4.46-probe-book.sql", ("/1/4/16/1", 13)),
+    ("tolino-shinecolor-5.18-probe-book.sql", ("/1/4/16/3", 7)),
+  ] {
+    let db = load(fixture);
+    let got = highlights(&db, "book-p.epub");
+    assert_eq!(got.len(), 8, "{fixture}");
+    let expected = common.iter().copied().chain([p7w03]);
+    for ((word, path, offset), (want, (steps, want_offset))) in
+      got.iter().zip(PROBE_WORDS.iter().zip(expected))
+    {
+      assert_eq!(word, want, "{fixture}");
+      assert_eq!(
+        *path,
+        format!("OEBPS/text/probe.xhtml#point({steps}"),
+        "{fixture} {word}"
+      );
+      assert_eq!(*offset, want_offset, "{fixture} {word}");
+    }
+  }
+}
+
+#[test]
+fn probe_book_koreader_counts_collapsed_characters() {
+  // Offsets in characters after whitespace collapsing: p6w03 at 12, not 16.
+  // A comment splits the text: p7w03 is in text()[2].
+  let base = "/body[1]/DocFragment[2]/body[1]";
+  let epub = [
+    "p[1]/text()[1].42",
+    "p[2]/text()[1].18",
+    "p[3]/text()[1].14",
+    "p[4]/text()[1].13",
+    "p[5]/em[1]/text()[1].6",
+    "p[5]/text()[2].1",
+    "p[6]/text()[1].12",
+    "p[7]/text()[2].7",
+  ];
+  let kepub = [
+    "p[1]/span[1]/text()[1].42",
+    "p[2]/span[1]/text()[1].18",
+    "p[3]/span[1]/text()[1].14",
+    "p[4]/span[1]/text()[1].13",
+    "p[5]/em[1]/span[1]/text()[1].6",
+    "p[5]/span[2]/text()[1].1",
+    "p[6]/span[1]/text()[1].12",
+    "p[7]/span[2]/text()[1].7",
+  ];
+  for (sdr, prefix, expected) in [
+    ("book-p.sdr", base.to_string(), epub),
+    ("book-p.kepub.sdr", format!("{base}/div[1]/div[1]"), kepub),
+  ] {
+    let got = koreader_highlights(sdr);
+    let want: Vec<_> = PROBE_WORDS
+      .iter()
+      .zip(expected)
+      .map(|(w, x)| (w.to_string(), format!("{prefix}/{x}")))
+      .collect();
+    assert_eq!(got, want, "{sdr}");
+  }
 }

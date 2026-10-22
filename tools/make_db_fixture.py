@@ -7,7 +7,10 @@ and `DbVersion`, the rows of the sideloaded books (`ContentType = 6`,
 9 and 899), and, on a Tolino, the empty schemas of a few `tolino_*` tables so
 the Tolino detection can be tested. Nothing else is read into the output:
 no store books, no `Bookmark`, `user`, `Event` or analytics rows, and never
-the contents of a `tolino_*` table (DRM keys live there).
+the contents of a `tolino_*` table (DRM keys live there). With `--bookmarks`
+it also keeps the `Bookmark` rows (highlights) of the sideloaded books, but
+only if their text consists of probe words (`p1w08`) or `x` placeholders,
+so highlights in a real book stop the script.
 
 Titles, authors, file names and every other descriptive text are replaced by
 placeholders; the structural values (positions, percent read, spine and ToC
@@ -60,6 +63,9 @@ SAFE_TEXT = re.compile(
 HEX32 = re.compile(r"[0-9a-f]{32}")
 UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 SERIAL = re.compile(r"T30[0-9A-Z]{4,}")
+# Highlighted text allowed in a fixture: probe words, x placeholders, spacing
+# and punctuation.
+HIGHLIGHT_TEXT = re.compile(r"^(?:p\d+w\d+|x+|[\s.,;:&\u00ad-])*$")
 
 
 def sql_literal(value):
@@ -191,11 +197,40 @@ def check_leftovers(text, schema, strings, tokens):
         sys.exit("Leftovers of the original data in the output, nothing written:\n  " + "\n  ".join(problems))
 
 
-def check_round_trip(text, expected, columns):
+def anonymize_bookmark(row, columns, anon):
+    out = {}
+    for col in columns:
+        value = row[col]
+        if value is None or isinstance(value, (int, float)):
+            out[col] = value
+        elif isinstance(value, bytes) or col in ("Annotation", "markupJson", "UserID", "Creator"):
+            out[col] = None  # Notes, drawings and account data.
+        elif col in ("BookmarkID", "UUID"):
+            out[col] = anon.chapter_uuid(value)
+        elif col == "VolumeID":
+            out[col] = anon.path_text(value)
+        elif col == "ContentID":
+            out[col] = anon.chapter_uuid(value) if UUID.match(value) else anon.path_text(value)
+        elif col in ("StartContainerPath", "EndContainerPath"):
+            out[col] = value
+        elif col in ("Text", "ContextString"):
+            if not HIGHLIGHT_TEXT.match(value):
+                sys.exit(f"Bookmark {col} is not probe or placeholder text; only highlights in the fixture books are allowed")
+            out[col] = value
+        elif col in ("DateCreated", "DateModified", "SyncTime"):
+            out[col] = FIXED_TIME
+        elif col in ("Type", "Version") or SAFE_TEXT.match(value):
+            out[col] = value
+        else:
+            sys.exit(f"No rule for Bookmark column {col} with value {value[:40]!r}…; extend the script")
+    return out
+
+
+def check_round_trip(text, expected, columns, table="content"):
     """Load the fixture and compare every value, type included."""
     mem = sqlite3.connect(":memory:")
     mem.executescript(text)
-    loaded = mem.execute(f"SELECT {', '.join(columns)} FROM content ORDER BY rowid").fetchall()
+    loaded = mem.execute(f"SELECT {', '.join(columns)} FROM {table} ORDER BY rowid").fetchall()
     want = [tuple(row[c] for c in columns) for row in expected]
     typed = lambda rows: [tuple((type(v).__name__, v) for v in row) for row in rows]  # noqa: E731
     if typed(loaded) != typed(want):
@@ -208,6 +243,7 @@ def main():
     parser.add_argument("output", help="SQL fixture to write")
     parser.add_argument("--names", required=True, help="placeholder letters in ContentID order, e.g. a,b")
     parser.add_argument("--device", required=True, help="device and firmware, for the header comment")
+    parser.add_argument("--bookmarks", action="store_true", help="also keep the highlights of the sideloaded books")
     args = parser.parse_args()
 
     db = sqlite3.connect(f"file:{args.source}?immutable=1", uri=True)
@@ -235,11 +271,19 @@ def main():
     for row in list(books) + list(chapters):
         letter = anon.letters[row["ContentID"] if row["ContentType"] == "6" else row["BookID"]]
         out = anonymize_row(row, columns, anon, letter, last_read)
-        key = (letter, row["ContentType"] != "6", int(row["ContentType"]), row["VolumeIndex"] or 0, out["ContentID"])
+        book_id = out["ContentID"] if row["ContentType"] == "6" else out["BookID"]
+        key = (letter, book_id, row["ContentType"] != "6", int(row["ContentType"]), row["VolumeIndex"] or 0, out["ContentID"])
         rows.append((key, out))
     rows.sort(key=lambda r: r[0])
 
-    schema_names = ["DbVersion", "content"] + [t for t in TOLINO_TABLES if db.execute(
+    bookmark_rows, bookmark_columns = [], []
+    if args.bookmarks:
+        bookmark_columns = [c[1] for c in db.execute("PRAGMA table_info(Bookmark)")]
+        source = db.execute(f"SELECT * FROM Bookmark WHERE VolumeID IN ({marks}) ORDER BY BookmarkID", ids).fetchall()
+        bookmark_rows = [anonymize_bookmark(row, bookmark_columns, anon) for row in source]
+        bookmark_rows.sort(key=lambda r: (r["VolumeID"], r["ContentID"], r["StartContainerPath"], r["StartOffset"]))
+
+    schema_names = ["DbVersion", "content"] + (["Bookmark"] if args.bookmarks else []) + [t for t in TOLINO_TABLES if db.execute(
         "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (t,)).fetchone()]
     schema = []
     for name in schema_names:
@@ -260,9 +304,14 @@ def main():
         lines.append(
             f"INSERT INTO content ({', '.join(cols)}) VALUES ({', '.join(sql_literal(out[c]) for c in cols)});"
         )
+    for out in bookmark_rows:
+        cols = [c for c in bookmark_columns if out[c] is not None]
+        lines.append(f"INSERT INTO Bookmark ({', '.join(cols)}) VALUES ({', '.join(sql_literal(out[c]) for c in cols)});")
     text = schema_text + "\n".join(lines) + "\n"
 
     check_round_trip(text, [out for _, out in rows], columns)
+    if args.bookmarks:
+        check_round_trip(text, bookmark_rows, bookmark_columns, "Bookmark")
     strings, tokens = forbidden_strings(db, books, chapters)
     # A source that already holds placeholder books (the EPUB fixtures put on
     # a device) keeps them unchanged; their names are no leftover.
@@ -274,7 +323,8 @@ def main():
     check_leftovers(text, schema_text, strings, tokens)
     with open(args.output, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
-    print(f"{args.output}: {len(books)} books, {len(chapters)} chapter rows, no leftovers found")
+    extra = f", {len(bookmark_rows)} highlights" if args.bookmarks else ""
+    print(f"{args.output}: {len(books)} books, {len(chapters)} chapter rows{extra}, no leftovers found")
 
 
 if __name__ == "__main__":

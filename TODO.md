@@ -33,7 +33,7 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     läuft daher auf Firmware 4.x und 5.x; `strayrose/nickeltc` bleibt für das
     Plugin (N2/N4). Der CI-Job `check` baut es, prüft es mit `file` und
     `qemu-arm` und lädt es als Artefakt `nickelinksync-armv7-musleabihf` hoch.
-  - [x] **du:** Testlauf auf Clara BW (4.46) und Shine 5 (5.18): Programm aus
+  - [x] **du:** Testlauf auf Clara BW (4.46) und Shine Color (5.18): Programm aus
     dem CI-Artefakt nach `.adds/NickelInkSync/` kopiert, `--version` gibt
     `nickelinksync 0.1.0` aus.
 - [x] **G4 Testdaten** · PR #9
@@ -43,7 +43,7 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     Platzhalter-EPUBs mit der Struktur der drei Bücher
     (`tools/make_epub_fixture.py`) und ein Test, der die Fixtures lädt. Siehe
     [`tests/fixtures/README.md`](tests/fixtures/README.md).
-  - [x] **du:** Gekürzte Daten vom Clara BW und Shine 5 durchgesehen und
+  - [x] **du:** Gekürzte Daten vom Clara BW und Shine Color durchgesehen und
     freigegeben, bevor sie ins Repo kamen. Es ging um deine Lesedaten.
 
 ## Kern
@@ -77,12 +77,22 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     hat die Kapitelzeile `VolumeIndex` 80) und Titan 2 (Spine-Index 39, ohne
     ToC-Eintrag und ohne Kapitelzeile).
 - [ ] **K4 Position genau**
-  - [~] **ich:** Aus der Datei ablesen, welchen DOM-Pfad KOReader erwartet
-    (Leerraum, `koboSpan`-Elemente). Am Kapitelanfang geprüft: KOReader
-    behält `koboSpan` und die kepub-Hüllen (`SCOPE.md`). Offen: Offsets
-    mitten im Text.
+  - [x] **ich:** Aus der Datei ablesen, welchen DOM-Pfad KOReader erwartet
+    (Leerraum, `koboSpan`-Elemente): KOReader behält `koboSpan` und die
+    kepub-Hüllen, fasst Leerraum zusammen und zählt Zeichen; der Adobe-Point
+    zählt UTF-8-Bytes (`SCOPE.md`).
   - [ ] **ich:** Kobo-Span → XPointer und Adobe-Point → XPointer, jeweils auch
     rückwärts.
+  - [ ] **ich:** Zweites Probebuch für Umlaute, Zeichen mit 3 Bytes (`–`, `…`)
+    und CDATA, unter eigenem Namen (**Book Q**, `book-q*.epub`), damit es nicht
+    mit Book P verwechselt wird.
+  - [x] **du:** Book P (`tests/fixtures/epub/book-p*.epub`) auf Kobo, Tolino
+    und in KOReader laden und die acht Zielwörter markieren (Liste in
+    `tests/fixtures/README.md`), dann beide Datenbanken und die `.sdr`-Ordner
+    kopieren.
+  - [x] **ich:** Markierungen auslesen (`make_db_fixture.py --bookmarks`) und
+    mit den erwarteten Offsets vergleichen (Ergebnis in
+    `tests/fixtures/README.md`).
   - [ ] **du:** Gegenprobe: Ein von uns berechneter XPointer öffnet in KOReader
     die richtige Stelle.
 - [ ] **K5 KOSync-Client**
@@ -119,11 +129,11 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     und Öffnen (`pull`) aufruft; Paket `KoboRoot.tgz`.
   - [ ] **du:** Test auf dem Clara BW.
 - [ ] **N3 Symbole für Tolino 5.18 (Qt6)**
-  - [ ] **du:** Firmware-Update 5.18 für den Shine 5 besorgen.
+  - [ ] **du:** Firmware-Update 5.18 für den Shine Color besorgen.
   - [ ] **ich:** Dieselben Symbole in der Qt6-Fassung suchen.
 - [ ] **N4 Plugin Qt6**
   - [ ] **ich:** Qt6-Build, Paket `Kobo.tgz`.
-  - [ ] **du:** Test auf dem Shine 5.
+  - [ ] **du:** Test auf dem Shine Color.
 
 ## Optional (später)
 
@@ -135,3 +145,9 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
 - [ ] **O3 Einstellungsdialog** auf dem Gerät.
 - [ ] **O4 Sync-Status** im Buchmenü, plus „Jetzt synchronisieren“.
 - [ ] **O5 Geräteübersicht** in `status`: alle Positionen eines Buchs nebeneinander.
+- [ ] **O6 Markierungen auf Kobo 5.x/6.x nachtesten** · `[!]` erst, wenn alle
+  Tests mit Kobo 4.x durch sind: Das Update auf 5.18+ kostet das einzige
+  4.x-Gerät (Clara BW). · **du:** Book P auf dem Kobo mit Firmware 5.18 oder
+  6.x markieren. Auf 4.46 zeigt Nickel Markierungen im kepub verschoben und im
+  EPUB teils gar nicht an (gespeichert wird richtig); auf dem Tolino mit 5.18
+  tritt das nicht auf.
