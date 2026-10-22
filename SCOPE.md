@@ -174,8 +174,12 @@ everywhere; only the offsets need converting.
 | Kobo span (`StartOffset`) | characters | as is | — (spans split there) |
 | Adobe point, Kobo 4.46 | UTF-8 bytes | as is | skipped, text joined |
 | Adobe point, Tolino 5.18 | UTF-8 bytes | as is | counted as a node |
-| KOReader XPointer | characters | collapsed (`\n    ` = 1) | splits `text()` |
-| KOReader CFI | characters | collapsed | skipped, text joined |
+| KOReader XPointer | code points | collapsed (`\n    ` = 1, leading spaces = 1) | splits `text()` |
+| KOReader CFI | UTF-16 units | collapsed | skipped, text joined |
+
+CDATA (Book Q): a node of its own for the Adobe point on Tolino 5.18 and a
+`text()` node of its own for KOReader's XPointer; KOReader's CFI joins the
+text across it.
 
 **KOReader positions** (KOReader 2026.07, `cre_dom_version` 20260812):
 `metadata.epub.lua` holds `last_xpointer` and also `last_epubcfi`. Spine
@@ -204,17 +208,16 @@ exactly the case the later manual mapping is for.
 ## Open technical questions
 
 1. **Shine 5 and Vision Color.** Assumed to match the Shine Color; not checked.
-2. **Offsets beyond the probe cases.** The unit and whitespace rules (see
-   [Verified findings](#verified-findings)) come from ASCII text plus a
-   no-break space and a soft hyphen. Not yet checked: three-byte characters
-   (`–`, `…`), umlauts in a highlight, CDATA, and how KOReader collapses
-   whitespace at the start and end of a block.
+2. **Offsets on Kobo 4.46 with Book Q.** Tolino 5.18 and KOReader are
+   checked with umlauts, multi-byte characters, CDATA and leading spaces
+   (see [Verified findings](#verified-findings)); the Kobo highlights of
+   Book Q (kepub span offsets with `𝄞`: characters or UTF-16 units?) are
+   still to read. Whitespace at the end of a block is not covered.
 3. **Write-back.** Writing the position into the database only works safely
    while Nickel is not running (USB mode). The plugin path needs a libnickel
    symbol to jump to a position, on both Qt5 and Qt6 builds.
 
 ## Test data still needed
 
-- Highlights in a probe book with umlauts and three-byte characters, for
-  open question 2 (Book P covers ASCII, no-break space and soft hyphen)
+- The Kobo 4.46 database with the Book Q highlights, for open question 2
 - Optional: a database from a Shine 5 or Vision Color

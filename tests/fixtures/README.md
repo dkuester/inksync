@@ -14,7 +14,7 @@ derive from them.
 | [`tolino-shinecolor-5.18.sql`](db/tolino-shinecolor-5.18.sql) | Tolino Shine Color | 5.18.264769 | 220 | Book A, Book C (plain EPUB) |
 | [`kobo-clarabw-4.46-placeholder-books.sql`](db/kobo-clarabw-4.46-placeholder-books.sql) | Kobo Clara BW | 4.46.23836 | 176 | the three EPUB fixtures below |
 | [`kobo-clarabw-4.46-probe-book.sql`](db/kobo-clarabw-4.46-probe-book.sql) | Kobo Clara BW | 4.46.23836 | 176 | Book P (kepub and EPUB) with highlights |
-| [`tolino-shinecolor-5.18-probe-book.sql`](db/tolino-shinecolor-5.18-probe-book.sql) | Tolino Shine Color | 5.18.264769 | 220 | Book P (EPUB) with highlights |
+| [`tolino-shinecolor-5.18-probe-books.sql`](db/tolino-shinecolor-5.18-probe-books.sql) | Tolino Shine Color | 5.18.264769 | 220 | Book P and Book Q (EPUB) with highlights |
 | [`tolino-shinecolor-5.18-placeholder-books.sql`](db/tolino-shinecolor-5.18-placeholder-books.sql) | Tolino Shine Color | 5.18.264769 | 220 | the three EPUB fixtures below |
 
 Book A is the same title on both devices (as two different files: a kepub on
@@ -185,6 +185,20 @@ runs); where Book Q breaks a rule, the highlights show it:
 | `q6w03` | leading and repeated spaces | `point(/1/4/14/1:18)` | `kobo.7.1`, 18 | `/body[1]/DocFragment[2]/body[1]/p[6]/text()[1].13` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[6]/span[1]/text()[1].13` |
 | `q7w03` | `&lt;`, `&gt;` and a tab | `point(/1/4/16/1:14)` | `kobo.8.1`, 14 | `/body[1]/DocFragment[2]/body[1]/p[7]/text()[1].14` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[7]/span[1]/text()[1].14` |
 | `q8w02` | `e` with a combining accent | `point(/1/4/18/1:13)` | `kobo.9.1`, 12 | `/body[1]/DocFragment[2]/body[1]/p[8]/text()[1].12` | `/body[1]/DocFragment[2]/body[1]/div[1]/div[1]/p[8]/span[1]/text()[1].12` |
+
+**Results so far** (2026-10-22; Kobo still to read): Tolino and KOReader
+match every prediction except where noted; stored in
+`tolino-shinecolor-5.18-probe-books.sql` and `koreader/book-q*.sdr/`.
+
+- Tolino Adobe points: all eight as predicted. UTF-8 bytes hold for umlauts,
+  three- and four-byte characters; the CDATA section is a node of its own
+  (`/1/4/12/3:1`); leading spaces, repeated spaces and the tab count as is.
+- KOReader XPointer: offsets in code points (`𝄞` = 1, the combining accent
+  = 1) after collapsing whitespace runs; leading spaces become one space
+  (q6w03 at 13). **CDATA is a `text()` node of its own**: q5w04 is in
+  `p[5]/text()[3].1`, not `text()[2]`.
+- **KOReader's CFI counts UTF-16 units**: q4w02 at `/1:9` (the XPointer
+  says 8), and it joins the text across the CDATA section (`/1:20`).
 
 ## KOReader state (`koreader/`)
 
