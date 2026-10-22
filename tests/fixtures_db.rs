@@ -425,8 +425,8 @@ const PROBE_WORDS: [&str; 8] = [
 ];
 
 #[test]
-fn probe_book_kepub_spans_count_characters() {
-  let db = load("kobo-clarabw-4.46-probe-book.sql");
+fn probe_book_kepub_spans() {
+  let db = load("kobo-clarabw-4.46-probe-books.sql");
   let expected = [
     ("kobo.2.1", 42),
     ("kobo.3.1", 18),
@@ -465,7 +465,7 @@ fn probe_book_adobe_points_count_utf8_bytes() {
     ("/1/4/14/1", 16),
   ];
   for (fixture, p7w03) in [
-    ("kobo-clarabw-4.46-probe-book.sql", ("/1/4/16/1", 13)),
+    ("kobo-clarabw-4.46-probe-books.sql", ("/1/4/16/1", 13)),
     ("tolino-shinecolor-5.18-probe-books.sql", ("/1/4/16/3", 7)),
   ] {
     let db = load(fixture);
@@ -606,4 +606,56 @@ fn probe_book_q_koreader_counts_code_points() {
   );
   let lua = std::fs::read_to_string(path).unwrap();
   assert!(lua.contains("\"epubcfi(/6/4!/4/10,/1:9,/1:14)\""));
+}
+
+#[test]
+fn probe_book_q_kobo() {
+  let db = load("kobo-clarabw-4.46-probe-books.sql");
+  // Kepub span offsets count UTF-16 units: 𝄞 is two (q4w02 at 9, KOReader's
+  // XPointer says 8); umlauts, – and the combining accent are one each, and
+  // whitespace counts as is (q6w03 at 18).
+  let spans = [
+    ("kobo.2.1", 22),
+    ("kobo.3.1", 16),
+    ("kobo.4.1", 14),
+    ("kobo.5.1", 9),
+    ("kobo.6.2", 1),
+    ("kobo.7.1", 18),
+    ("kobo.8.1", 14),
+    ("kobo.9.1", 12),
+  ];
+  let got = highlights(&db, "book-q.kepub.epub");
+  assert_eq!(got.len(), 8);
+  for ((word, path, offset), (want, (span, want_offset))) in
+    got.iter().zip(PROBE_WORDS_Q.iter().zip(spans))
+  {
+    assert_eq!(word, want);
+    assert_eq!(path.replace('\\', ""), format!("span#{span}"), "{word}");
+    assert_eq!(*offset, want_offset, "{word}");
+  }
+  // Plain EPUB: UTF-8 bytes as on the Tolino, but Kobo 4.46 skips the CDATA
+  // section like a comment and joins the text around it (q5w04 at /1:20).
+  let points = [
+    ("/1/4/4/1", 27),
+    ("/1/4/6/1", 20),
+    ("/1/4/8/1", 18),
+    ("/1/4/10/1", 11),
+    ("/1/4/12/1", 20),
+    ("/1/4/14/1", 18),
+    ("/1/4/16/1", 14),
+    ("/1/4/18/1", 13),
+  ];
+  let got = highlights(&db, "book-q.epub");
+  assert_eq!(got.len(), 8);
+  for ((word, path, offset), (want, (steps, want_offset))) in
+    got.iter().zip(PROBE_WORDS_Q.iter().zip(points))
+  {
+    assert_eq!(word, want);
+    assert_eq!(
+      *path,
+      format!("OEBPS/text/probe.xhtml#point({steps}"),
+      "{word}"
+    );
+    assert_eq!(*offset, want_offset, "{word}");
+  }
 }
