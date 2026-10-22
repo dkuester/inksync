@@ -9,7 +9,7 @@ the Tolino detection can be tested. Nothing else is read into the output:
 no store books, no `Bookmark`, `user`, `Event` or analytics rows, and never
 the contents of a `tolino_*` table (DRM keys live there). With `--bookmarks`
 it also keeps the `Bookmark` rows (highlights) of the sideloaded books, but
-only if their text consists of probe words (`p1w08`) or `x` placeholders,
+only if their text consists of probe words (`p1w08`, `q1w03`) or `x` placeholders,
 so highlights in a real book stop the script.
 
 Titles, authors, file names and every other descriptive text are replaced by
@@ -63,9 +63,11 @@ SAFE_TEXT = re.compile(
 HEX32 = re.compile(r"[0-9a-f]{32}")
 UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 SERIAL = re.compile(r"T30[0-9A-Z]{4,}")
-# Highlighted text allowed in a fixture: probe words, x placeholders, spacing
-# and punctuation.
-HIGHLIGHT_TEXT = re.compile(r"^(?:p\d+w\d+|x+|[\s.,;:&\u00ad-])*$")
+# Highlighted text allowed in a fixture: probe words of Book P and Book Q,
+# Book Q's filler words, x placeholders, spacing and punctuation.
+HIGHLIGHT_TEXT = re.compile(
+    r"^(?:[pq]\d+w\d+|x+|äöü|Größe|Cafe\u0301|[\s.,;:&<>\u00ad\u2013\u2026\u201e\u201c\U0001d11e-])*$"
+)
 
 
 def sql_literal(value):

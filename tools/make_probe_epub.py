@@ -1,24 +1,29 @@
 #!/usr/bin/env python3
-"""Build "Book P", a probe book for positions inside a paragraph.
+"""Build a probe book for positions inside a paragraph: Book P or Book Q.
 
-Every word is unique (`p<paragraph>w<word>`), so the same word can be found
-and highlighted on a Kobo, a Tolino and in KOReader. The probe chapter mixes
-in the cases that may make character offsets differ between renderers: a
-no-break space, an entity, a soft hyphen, an inline element, a line break
-with indentation inside a text node, and a comment.
+Every word is unique (`p<paragraph>w<word>`, `q…` in Book Q), so the same
+word can be found and highlighted on a Kobo, a Tolino and in KOReader. The
+probe chapter puts in front of each target word a case that may make
+character offsets differ between renderers. Book P: a no-break space, an
+entity, a soft hyphen, an inline element, a line break with indentation and
+a comment. Book Q: umlauts, three- and four-byte characters, typographic
+quotes, CDATA, leading and repeated spaces, `&lt;` with a tab, and a
+combining accent.
 
 Writes two files with the same text: a plain EPUB and a kepub with Kobo
 spans (`span.koboSpan#kobo.N.M`, inside `div#book-columns/div#book-inner`).
-Then prints, for each target word, where each format should put its start:
-the Adobe point (plain EPUB), the Kobo span and offset (kepub), and a naive
-KOReader XPointer counted over the source DOM. The device and KOReader data
-confirm or refute these.
+Then prints, for each target word, where each format should put its start,
+by the rules found with Book P (see SCOPE.md): the Adobe point in UTF-8
+bytes, the Kobo span offset in characters, and the KOReader XPointer in
+characters after collapsing whitespace runs to one space. The device and
+KOReader data confirm or refute these.
 
-    tools/make_probe_epub.py tests/fixtures/epub
+    tools/make_probe_epub.py tests/fixtures/epub [--book q]
 
 Needs no input; the output is deterministic.
 """
 
+import argparse
 import re
 import sys
 import uuid
@@ -31,9 +36,9 @@ ZIP_TIME = (2026, 1, 1, 0, 0, 0)
 SPINE = ["text/title.xhtml", "text/probe.xhtml", "text/end.xhtml"]
 PROBE = 1  # spine index of the probe chapter
 
-# The probe chapter body, pretty-printed on purpose: the whitespace between
+# The probe chapter bodies, pretty-printed on purpose: the whitespace between
 # the block elements are text nodes that the Adobe point counts.
-PROBE_BODY = """
+PROBE_BODY_P = """
 <h1 id="probe">p0w01 p0w02</h1>
 <p>p1w01 p1w02 p1w03 p1w04 p1w05 p1w06 p1w07 p1w08 p1w09 p1w10 p1w11 p1w12.</p>
 <p>p2w01 p2w02&#160;p2w03&#160;p2w04 p2w05 p2w06.</p>
@@ -45,7 +50,7 @@ PROBE_BODY = """
 <p>p7w01 <!-- comment --> p7w02 p7w03 p7w04.</p>
 """
 # (word, what precedes it)
-TARGETS = [
+TARGETS_P = [
     ("p1w08", "plain text, mid-paragraph"),
     ("p2w04", "two no-break spaces"),
     ("p3w03", "the entity `&amp;`"),
@@ -55,6 +60,29 @@ TARGETS = [
     ("p6w03", "a line break and indentation"),
     ("p7w03", "a comment"),
 ]
+
+PROBE_BODY_Q = """
+<h1 id="probe">q0w01 q0w02</h1>
+<p>q1w01 äöü q1w02 Größe q1w03 q1w04.</p>
+<p>q2w01 – q2w02 … q2w03 q2w04.</p>
+<p>q3w01 „q3w02“ q3w03 q3w04.</p>
+<p>q4w01 𝄞 q4w02 q4w03.</p>
+<p>q5w01 <![CDATA[q5w02 <q5w03>]]> q5w04 q5w05.</p>
+<p>   q6w01  q6w02   q6w03 q6w04.</p>
+<p>q7w01 &lt;q7w02&gt;	q7w03 q7w04.</p>
+<p>q8w01 Café q8w02 q8w03.</p>
+"""
+TARGETS_Q = [
+    ("q1w03", "umlauts and ß (two bytes each)"),
+    ("q2w03", "`–` and `…` (three bytes each)"),
+    ("q3w03", "typographic quotes `„` `“` (three bytes each)"),
+    ("q4w02", "a four-byte character (`𝄞`, two UTF-16 units)"),
+    ("q5w04", "a CDATA section"),
+    ("q6w03", "leading and repeated spaces"),
+    ("q7w03", "`&lt;`, `&gt;` and a tab"),
+    ("q8w02", "`e` with a combining accent"),
+]
+BOOKS = {"p": (PROBE_BODY_P, TARGETS_P), "q": (PROBE_BODY_Q, TARGETS_Q)}
 
 
 def page(title, body):
@@ -116,18 +144,22 @@ def find_word(doc, word):
 
 
 def adobe_point(node, offset):
+    """Indices over all child nodes; offset in UTF-8 bytes."""
+    data = node.data
     steps = []
     while node.parentNode.nodeType != node.DOCUMENT_NODE:
         steps.append(node.parentNode.childNodes.index(node) + 1)
         node = node.parentNode
-    return "point(/1/" + "/".join(str(s) for s in reversed(steps)) + f":{offset})"
+    return "point(/1/" + "/".join(str(s) for s in reversed(steps)) + f":{len(data[:offset].encode('utf-8'))})"
 
 
 def naive_xpointer(node, offset):
-    """Element steps by tag index, text() index among text siblings, all
-    counted over the source DOM. A hypothesis, not KOReader's algorithm."""
+    """Element steps by tag index, text() index among text siblings, the
+    offset in characters after collapsing whitespace runs (not no-break
+    spaces) to one space. A hypothesis, not KOReader's algorithm."""
     text_siblings = [c for c in node.parentNode.childNodes if c.nodeType == c.TEXT_NODE]
-    steps = [f"text()[{text_siblings.index(node) + 1}].{offset}"]
+    collapsed = len(re.sub(r"[ \t\r\n]+", " ", node.data[:offset]))
+    steps = [f"text()[{text_siblings.index(node) + 1}].{collapsed}"]
     node = node.parentNode
     while node.tagName != "body":
         same = [c for c in node.parentNode.childNodes if c.nodeType == c.ELEMENT_NODE and c.tagName == node.tagName]
@@ -136,8 +168,8 @@ def naive_xpointer(node, offset):
     return f"/body[1]/DocFragment[{PROBE + 1}]/body[1]/" + "/".join(reversed(steps))
 
 
-def opf(kepub):
-    book_id = uuid.uuid5(uuid.NAMESPACE_URL, f"nickelinksync-probe-book-p-{'kepub' if kepub else 'epub'}")
+def opf(letter, kepub):
+    book_id = uuid.uuid5(uuid.NAMESPACE_URL, f"nickelinksync-probe-book-{letter}-{'kepub' if kepub else 'epub'}")
     items = "\n".join(
         f'    <item id="s{i}" href="{href}" media-type="application/xhtml+xml"/>' for i, href in enumerate(SPINE)
     )
@@ -147,7 +179,7 @@ def opf(kepub):
         '<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid">\n'
         '  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n'
         f'    <dc:identifier id="uid">urn:uuid:{book_id}</dc:identifier>\n'
-        "    <dc:title>Book P</dc:title>\n    <dc:creator>Author P</dc:creator>\n"
+        f"    <dc:title>Book {letter.upper()}</dc:title>\n    <dc:creator>Author {letter.upper()}</dc:creator>\n"
         "    <dc:language>en</dc:language>\n"
         '    <meta property="dcterms:modified">2026-01-01T00:00:00Z</meta>\n'
         "  </metadata>\n  <manifest>\n"
@@ -161,7 +193,7 @@ def opf(kepub):
 TOC = [("Title", "text/title.xhtml"), ("Probe", "text/probe.xhtml"), ("End", "text/end.xhtml")]
 
 
-def ncx():
+def ncx(letter):
     points = "\n".join(
         f'    <navPoint id="n{i}" playOrder="{i + 1}"><navLabel><text>{label}</text></navLabel>'
         f'<content src="{src}"/></navPoint>'
@@ -170,15 +202,15 @@ def ncx():
     return (
         '<?xml version="1.0" encoding="utf-8"?>\n'
         '<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">\n'
-        '  <head><meta name="dtb:uid" content="book-p"/></head>\n'
-        "  <docTitle><text>Book P</text></docTitle>\n"
+        f'  <head><meta name="dtb:uid" content="book-{letter}"/></head>\n'
+        f"  <docTitle><text>Book {letter.upper()}</text></docTitle>\n"
         f"  <navMap>\n{points}\n  </navMap>\n</ncx>\n"
     )
 
 
-def nav():
+def nav(letter):
     links = "".join(f'<li><a href="{src}">{label}</a></li>' for label, src in TOC)
-    return page("Book P", f'\n<nav xmlns:epub="http://www.idpf.org/2007/ops" epub:type="toc"><ol>{links}</ol></nav>\n')
+    return page(f"Book {letter.upper()}", f'\n<nav xmlns:epub="http://www.idpf.org/2007/ops" epub:type="toc"><ol>{links}</ol></nav>\n')
 
 
 def write(path, files):
@@ -191,7 +223,13 @@ def write(path, files):
 
 
 def main():
-    out_dir = Path(sys.argv[1] if len(sys.argv) > 1 else "tests/fixtures/epub")
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("out_dir", nargs="?", default="tests/fixtures/epub")
+    parser.add_argument("--book", choices=sorted(BOOKS), default="p")
+    args = parser.parse_args()
+    out_dir, letter = Path(args.out_dir), args.book
+    body, targets = BOOKS[letter]
+    title = f"Book {letter.upper()}"
     container = (
         '<?xml version="1.0" encoding="utf-8"?>\n'
         '<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">\n'
@@ -199,29 +237,31 @@ def main():
         "</container>\n"
     )
     pages = {
-        "text/title.xhtml": page("Book P", "\n<h1>Book P</h1>\n<p>Author P. A probe book for NickelInkSync.</p>\n"),
-        "text/probe.xhtml": page("Probe", PROBE_BODY),
-        "text/end.xhtml": page("End", "\n<p>End of Book P.</p>\n"),
+        "text/title.xhtml": page(
+            title, f"\n<h1>{title}</h1>\n<p>Author {letter.upper()}. A probe book for NickelInkSync.</p>\n"
+        ),
+        "text/probe.xhtml": page("Probe", body),
+        "text/end.xhtml": page("End", f"\n<p>End of {title}.</p>\n"),
     }
     epub = {f"OEBPS/{name}": data for name, data in pages.items()}
     kepub = {f"OEBPS/{name}": kepubify(data) for name, data in pages.items()}
     for files, kepub_flag in ((epub, False), (kepub, True)):
         files.update({
             "META-INF/container.xml": container,
-            "OEBPS/content.opf": opf(kepub_flag),
-            "OEBPS/toc.ncx": ncx(),
-            "OEBPS/nav.xhtml": nav(),
+            "OEBPS/content.opf": opf(letter, kepub_flag),
+            "OEBPS/toc.ncx": ncx(letter),
+            "OEBPS/nav.xhtml": nav(letter),
         })
-    write(out_dir / "book-p.epub", epub)
-    write(out_dir / "book-p.kepub.epub", kepub)
+    write(out_dir / f"book-{letter}.epub", epub)
+    write(out_dir / f"book-{letter}.kepub.epub", kepub)
 
     plain = minidom.parseString(epub["OEBPS/text/probe.xhtml"].encode("utf-8"))
     spans = minidom.parseString(kepub["OEBPS/text/probe.xhtml"].encode("utf-8"))
-    print(f"{out_dir}/book-p.epub, {out_dir}/book-p.kepub.epub: probe chapter OEBPS/{SPINE[PROBE]}"
+    print(f"{out_dir}/book-{letter}.epub, {out_dir}/book-{letter}.kepub.epub: probe chapter OEBPS/{SPINE[PROBE]}"
           f" (spine index {PROBE})\n")
-    print("| Word | After | EPUB: Adobe point | kepub: span, offset | KOReader EPUB (naive) | KOReader kepub (naive) |")
+    print("| Word | After | EPUB: Adobe point | kepub: span, offset | KOReader EPUB | KOReader kepub |")
     print("|---|---|---|---|---|---|")
-    for word, after in TARGETS:
+    for word, after in targets:
         node, offset = find_word(plain, word)
         knode, koffset = find_word(spans, word)
         span = knode.parentNode.getAttribute("id")
