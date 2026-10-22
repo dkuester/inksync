@@ -271,7 +271,8 @@ def main():
     for row in list(books) + list(chapters):
         letter = anon.letters[row["ContentID"] if row["ContentType"] == "6" else row["BookID"]]
         out = anonymize_row(row, columns, anon, letter, last_read)
-        key = (letter, row["ContentType"] != "6", int(row["ContentType"]), row["VolumeIndex"] or 0, out["ContentID"])
+        book_id = out["ContentID"] if row["ContentType"] == "6" else out["BookID"]
+        key = (letter, book_id, row["ContentType"] != "6", int(row["ContentType"]), row["VolumeIndex"] or 0, out["ContentID"])
         rows.append((key, out))
     rows.sort(key=lambda r: r[0])
 
