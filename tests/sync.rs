@@ -310,6 +310,11 @@ fn pull_follows_the_confirm_setting() {
     out.contains(&format!("  would move to {AHEAD} (90 %)")),
     "{out}"
   );
+  // As the Tolino would store it.
+  assert!(
+    out.contains("  on device OEBPS/xhtml/xhtml-0-89.xhtml#point(/1/2/1/1:0)\n"),
+    "{out}"
+  );
 
   // Server newer but behind: asks; with `never` it moves, `--force` too.
   s.server.store(&book_hash(), BEHIND, 0.03, LAST_READ + 60);

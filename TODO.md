@@ -94,10 +94,17 @@ beiden Geräte beim Testen nicht durcheinander.
     (Leerraum, `koboSpan`-Elemente): KOReader behält `koboSpan` und die
     kepub-Hüllen, fasst Leerraum zusammen und zählt Zeichen; der Adobe-Point
     zählt UTF-8-Bytes (`SCOPE.md`).
-  - [~] **ich:** Kobo-Span → XPointer und Adobe-Point → XPointer
+  - [x] **ich:** Kobo-Span → XPointer und Adobe-Point → XPointer
     (`position::to_xpointer`): alle 48 Markierungen von Kobo und Tolino in
-    Book P und Book Q ergeben genau KOReaders XPointer. Offen: rückwärts
-    (XPointer → Kobo-Span / Adobe-Point), nötig für `pull`.
+    Book P und Book Q ergeben genau KOReaders XPointer.
+  - [x] **ich:** Rückwärts für den Tolino: XPointer → Adobe-Point
+    (`position::from_xpointer`). Rundreise: alle 16 Tolino-Markierungen in
+    Book P und Book Q kommen unverändert zurück, KOReaders Markierungen
+    derselben Wörter ergeben genau die Tolino-Points, ebenso Book R. `pull`
+    zeigt im Probelauf, was auf dem Gerät gespeichert würde (`on device`).
+  - [ ] **ich (Kobo-Durchgang):** Rückwärts für den Kobo: XPointer →
+    Kobo-Span (kepub) und Adobe-Point für 4.x (Text um Kommentare
+    zusammengefasst).
   - [x] **ich:** Zweites Probebuch für Umlaute, Zeichen mit 3 und 4 Bytes,
     CDATA, Leerraum am Absatzanfang und kombinierende Akzente, unter eigenem
     Namen (**Book Q**, `book-q*.epub`), damit es nicht mit Book P verwechselt
