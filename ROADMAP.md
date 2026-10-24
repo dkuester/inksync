@@ -45,6 +45,9 @@ L = a week or more, including verification.
       256), equal to KOReader's value for all seven EPUB fixtures
 - [x] `status --device`: lists the sideloaded books of a mounted device with
       model, firmware, hash and stored position, without writing to it
+- [x] Position translation device → KOReader: OPF spine, kepub span and
+      Adobe point (both firmware lines) to a full XPointer; all 48 probe
+      highlights give exactly KOReader's XPointer; `status` shows it
 
 ## Quick wins
 
@@ -62,14 +65,10 @@ L = a week or more, including verification.
   cross-check on the Kobo: Tolino chapter rows are ToC entries, so their
   `VolumeIndex` is a ToC index, not a spine index. Fixtures: the Clara BW
   and Shine Color databases in `tests/fixtures/db/`.
-- **Position translation, chapter level** (M): `href#kobo.N.M` and
-  `href#point(...)` → spine index → `DocFragment[n]`, percentage as fallback.
-  Verified on both reference devices.
-- **Position translation, precise** (M–L): Kobo span and Adobe point ↔
-  full XPointer. Node paths and offset rules are confirmed with highlights
-  in the probe book (Adobe point: UTF-8 bytes; KOReader: characters after
-  whitespace collapsing); open: three-byte characters and umlauts, and the
-  final check that a computed XPointer opens at the right place in KOReader.
+- **Position translation, back to the device** (M): KOReader XPointer →
+  Kobo span or Adobe point, for `pull`. The forward direction is done (see
+  "Recently completed"); the final check that a computed XPointer opens at
+  the right place in KOReader comes with the first `push`.
 - **KOSync client + `push`/`pull`/`status` CLI** (M): auth headers, progress
   GET/PUT, newest-wins conflict rule, dry-run by default for anything that
   writes. Verification needs a reachable koreader-sync-server.

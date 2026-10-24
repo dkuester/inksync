@@ -147,6 +147,8 @@ fn tolino_status_output() {
     "  file      Books/book-a.kepub.epub (EPUB)",
     &format!("  hash      {}", koreader_md5("book-a.kepub.sdr")),
     "  position  OPS/bookwire/bookwire_advertisement5.xhtml#point(/1/4/16/1:688)",
+    // Same place as KOReader's position in this file (the chapter heading).
+    "  koreader  /body[1]/DocFragment[82]/body[1]/div[1]/text()[1].0",
     "  progress  100 %, finished, last read 2026-01-02T12:00:00Z",
   ] {
     assert!(

@@ -213,9 +213,11 @@ exactly the case the later manual mapping is for.
 
 1. **Shine 5 and Vision Color.** Assumed to match the Shine Color; not checked.
 2. **Whitespace at the end of a block** and other cases the probe books do
-   not cover (named entities from a DTD, `xml:space`, `<pre>`). The offset
-   rules in [Verified findings](#verified-findings) hold for everything Book P
-   and Book Q test.
+   not cover (named entities from a DTD, `xml:space`, `<pre>`), and whether
+   KOReader counts a whitespace-only text node in front of the target as a
+   `text()` (the converter assumes it does). The offset rules in
+   [Verified findings](#verified-findings) hold for everything Book P and
+   Book Q test.
 3. **Write-back.** Writing the position into the database only works safely
    while Nickel is not running (USB mode). The plugin path needs a libnickel
    symbol to jump to a position, on both Qt5 and Qt6 builds.
