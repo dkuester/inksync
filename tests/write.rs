@@ -338,6 +338,10 @@ fn live_pull_emits_the_position_and_never_writes() {
     out.contains("  stored    OEBPS/xhtml/xhtml-0-81.xhtml#point(/1/2/1/1:0)\n"),
     "{out}"
   );
+  assert!(
+    out.contains("Nothing was written to the device database (Nickel is running)."),
+    "{out}"
+  );
   // Only with --emit.
   let (_, out) = s.run(&base);
   assert!(!out.contains("NICKELINKSYNC_POSITION"), "{out}");

@@ -28,7 +28,9 @@
  *   The original saves the position (saveProgress); after it returns, the CLI
  *   pushes that book in the background (`push --live`), once Wi-Fi is up. Not
  *   while the background pull of that book still runs: then the reading view
- *   was only covered (a dialog), and its position is about to change.
+ *   was only covered (a dialog), and its position is about to change. And
+ *   not after a jump that did not reach the pulled chapter: the device
+ *   position would then overwrite the newer one on the server (device test).
  *
  * Network: Nickel switches Wi-Fi off when idle. The plugin asks it to connect
  * without a dialog first (WirelessWorkflowManager::connectWireless(false,
@@ -131,6 +133,8 @@ static bool g_active = false;
 static QString g_open_id;
 // The book whose background pull and jump still run (GUI thread only).
 static QString g_syncing;
+// The book whose pulled position Nickel did not reach: not pushed.
+static QString g_not_reached;
 
 static void log_line(const QString &msg)
 {
@@ -221,13 +225,30 @@ static QString current_location(ReadingView *view)
     return at;
 }
 
-static void log_location(const QString &when)
+// The chapter file of a position (`OEBPS/text/chapter1.xhtml#point(...)`).
+static QString chapter_of(const QString &position)
+{
+    return position.section(QLatin1Char('#'), 0, 0);
+}
+
+// After a jump: Nickel shows a page start, which lies before the pulled
+// point, so "reached" means the same chapter.
+static void check_jump(const QString &id, const QString &target)
 {
     ReadingView *view = reading_view();
-    if (view) {
-        log_line(QStringLiteral("%1: Nickel is at %2").arg(when, current_location(view)));
+    if (!view || g_open_id != id) {
+        log_line(QStringLiteral("2 s after the jump: not in the reading view of the book"));
+        return;
+    }
+    const QString at = current_location(view);
+    if (chapter_of(at) == chapter_of(target)) {
+        if (g_not_reached == id) {
+            g_not_reached.clear();
+        }
+        log_line(QStringLiteral("2 s after the jump: Nickel is at %1, in the pulled chapter").arg(at));
     } else {
-        log_line(QStringLiteral("%1: not in the reading view").arg(when));
+        log_line(QStringLiteral("2 s after the jump: Nickel is still at %1, not in the pulled chapter; "
+                                "leaving this book will not push").arg(at));
     }
 }
 
@@ -273,7 +294,9 @@ static void jump_when_open(const QString &id, const QByteArray &position, int tr
         Bookmark__dtor(bookmark);
         log_line(QStringLiteral("jump from %1 to %2: %3")
                      .arg(at, target, ok ? QStringLiteral("done") : QStringLiteral("refused")));
-        QTimer::singleShot(2000, qApp, [] { log_location(QStringLiteral("2 s after the jump")); });
+        // Until checked, the pulled position counts as not reached.
+        g_not_reached = id;
+        QTimer::singleShot(2000, qApp, [id, target] { check_jump(id, target); });
     }
     ContentLocation__dtor(location);
     sync_done(id);
@@ -342,6 +365,7 @@ void _nh_ReadingController__setVolume(ReadingController *self, const Volume *vol
     }
     const QString id = Content__getId(volume, QString());
     g_open_id = id;
+    g_not_reached.clear();
     if (!id.startsWith(QString::fromLatin1(kSideloaded))) {
         return;
     }
@@ -365,6 +389,10 @@ void _nh_ReadingView__leavingReadingExperience(ReadingView *self)
     const QString id = g_open_id;
     if (g_syncing == id) {
         log_line(QStringLiteral("left the reading view while pulling %1 (a dialog?): not pushed").arg(id));
+        return;
+    }
+    if (g_not_reached == id) {
+        log_line(QStringLiteral("left %1, but Nickel never reached the pulled position: not pushed").arg(id));
         return;
     }
     // Detached, output appended to the log; the arguments reach the shell

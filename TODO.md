@@ -297,7 +297,13 @@ beiden Geräte beim Testen nicht durcheinander.
     Hintergrund WLAN (erst still, nach 15 s mit Nickels WLAN-Dialog, wie von
     dir angeregt), `pull`, Sprung; kein `push`, solange das läuft. Die
     Änderungen am `Volume` und der `getById`-Hook sind entfernt.
-  - [ ] **du:** Sechster Test: springt Nickel, auch in ein anderes Kapitel?
+  - [x] **du:** Sechster Test (2026-10-24): WLAN und `pull` in einer Sekunde,
+    `goToBookmark` meldet „done“, Nickel bleibt aber in Kapitel 2 (Ziel
+    Kapitel 1). Danach hat der `push` die neuere KOReader-Position auf dem
+    Server mit der Tolino-Position überschrieben.
+  - [x] **ich:** Kein `push` mehr, wenn Nickel nach dem Sprung nicht im
+    geholten Kapitel steht; `pull --live` schreibt nicht mehr „Dry run“.
+  - [ ] **du + ich:** Weg für den Sprung in ein anderes Kapitel entscheiden.
 
 ## Optional (später)
 

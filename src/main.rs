@@ -649,7 +649,9 @@ fn pull(target: &Target, force: bool, write: bool, emit: bool) -> Result<bool> {
     });
   }
   unanswered_note(unanswered);
-  if !write {
+  if !write && target.live {
+    println!("\nNothing was written to the device database (Nickel is running).");
+  } else if !write {
     println!("\nDry run: nothing was written to the device; --write writes it.");
   } else if writes.is_empty() {
     println!("\nNothing to write to the device.");
