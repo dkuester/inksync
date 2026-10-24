@@ -31,17 +31,20 @@ moves to `r1`. A by-value return shows as `mov r4, r0` at entry and
 | Copy the book | `_ZN6VolumeC1ERKS_`, `_ZN6VolumeD1Ev` | `Volume::Volume(Volume const&)`, `Volume::~Volume()` |
 | Set the position | `_ZN7Content22setChapterIdBookmarkedERK8QVariant` | `void Content::setChapterIdBookmarked(QVariant const&)` (stored as `QByteArray`) |
 | Set the percentage | `_ZN7Content14setPercentReadERK8QVariant` | `void Content::setPercentRead(QVariant const&)` (stored as `int`) |
+| Book loaded again | `_ZN13VolumeManager7getByIdERK7QStringS2_` | `static Volume VolumeManager::getById(QString const& id, QString const&)` (by value: result pointer in `r0`, which it also returns; the arguments in `r1`, `r2`) |
 
 How they connect, from the call graph of the whole library:
 
 - **Opening.** `N3ReaderOpener::openReader(Context const&)` pushes the
   reading controller and calls `ReadingController::setVolume(volume,
   context.bookmark)`. That passes both on to `ReadingView::setVolume`,
-  which compares the bookmark with `HasNull<Bookmark>::null()` and sets
-  up the reader; none of the functions it calls by name reads the
-  database. So the position the
-  book opens at comes from the `Volume` in memory (its `ChapterIDBookmarked`)
-  unless a bookmark is given (a link, a search result).
+  which compares the bookmark with `HasNull<Bookmark>::null()` and calls
+  `ReadingView::setupReader(QString const&)`. **`setupReader` loads the
+  book again from the database** (`VolumeManager::getById`, via the PLT)
+  and sets up the reader state from that. On the Tolino the chapter to
+  open comes from the `Volume` passed to `setVolume`, the place in the
+  chapter from the one `getById` loads (device test below). A bookmark,
+  if given (a link, a search result), takes precedence.
 - **Closing.** `ReadingView::leavingReadingExperience()` calls
   `onLeaving()`, then `saveProgress()`, which goes through
   `updateContentLocation(…)` to `VolumeManager::updateBookmark(Volume&,
@@ -53,21 +56,22 @@ How they connect, from the call graph of the whole library:
 - **Page turns** go through `ReadingView::updateContentLocation(…)` →
   `VolumeManager::updateBookmark(…)`, not needed by the plugin.
 
-## The pull path: change the Volume, not the database
+## The pull path: change the Volumes, not the database
 
-Writing the database (as `pull --write` does over USB) is **not enough**
-inside the plugin, and not safe:
+Writing the database while Nickel runs is not safe: Nickel keeps its
+`Volume` in memory and writes it back on every page turn and on close
+(`VolumeManager::updateBookmark`), and two processes would write the same
+database. The plugin instead sets the pulled position in **both** `Volume`s
+Nickel opens the book from:
 
-1. When the open hook runs, Nickel has already read the book from the
-   database: `setVolume` gets the `Volume` by reference and nothing below
-   it reads the database again, so a row written now would only count the
-   next time the book is opened.
-2. Nickel keeps its `Volume` in memory and writes it back on every page
-   turn and on close (`VolumeManager::updateBookmark`), so a position
-   written behind its back is overwritten.
+1. a copy of the `Volume` handed to the original `setVolume` (the
+   chapter), and
+2. the `Volume` that `VolumeManager::getById` returns for this book while
+   the original `setVolume` runs (the place in the chapter). A hook on
+   `getById` does that; it changes nothing at other times or for other
+   books.
 
-Instead, the hook replaces the position in a copy of the `Volume` before
-Nickel opens it:
+The first version did only step 1:
 
 ```cpp
 // Hooked: void ReadingController::setVolume(Volume const&, Bookmark const&)
@@ -88,18 +92,20 @@ void _nh_set_volume(void *self, const Volume &volume, const Bookmark &bookmark) 
 }
 ```
 
-Sketch only; N4 decides the details (the size of `Volume`, which `new`
-plus the copy constructor avoids; running the CLI with a time limit so a
-slow network never blocks opening; what happens when the confirm rule
-needs an answer). Nickel then opens at the new position and saves it
-itself on the next page turn and on close, so the database never has to
-be written while Nickel runs.
+**Device test of step 1 alone** (Shine Color 5.18, Book R, 2026-10-24):
+KOReader was at R3-45 (`chapter3.xhtml#point(/1/4/92/1:0)`, 75 %), the
+database still at R2-133 in chapter 2. The plugin pulled R3-45 and handed
+Nickel the copy; Nickel opened **chapter 3 at its start (R3-1)**: the
+chapter from the copy, but the place in the chapter from the row
+`getById` had loaded, which pointed into chapter 2 and so did not fit.
+Hence step 2 (`plugin/src/nickelinksync.cc`; the log says whether
+`getById` was seen while opening). The `Volume` is 12 bytes (vtable,
+shared data, flags; see its copy constructor). Nickel opens at the new
+position and saves it itself on the next page turn and on close, so the
+database never has to be written while Nickel runs.
 
-Not verified yet, and the first thing to check on the device in N4:
-that a `Volume` copy with a new `ChapterIdBookmarked` really opens there
-(`ReadingView::setVolume` reaches the reader through internal functions
-without symbols). If it does not, the fallback is to jump after the book
-has loaded:
+If that still does not open at the place, the fallback is to jump after
+the book has loaded:
 
 | Purpose | Symbol | Signature (checked) |
 |---|---|---|

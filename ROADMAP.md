@@ -97,11 +97,12 @@ follows in a pass of its own.
   jump via Nickel's own navigation. Blocker: find the libnickel symbol for
   "open at position" on 4.46; verification is on-device only.
 - **NickelHook plugin, Qt6 (Tolino 5.x)** (L): built (`plugin/`,
-  `Kobo.tgz`, CI artifact `NickelInkSync-tolino`): the open hook passes a
-  copy of the book with the pulled position, the leave hook pushes in the
+  `Kobo.tgz`, CI artifact `NickelInkSync-tolino`): the open hook sets the
+  pulled position in the book Nickel opens (also in the copy it loads again
+  through `VolumeManager::getById`), the leave hook pushes in the
   background ([docs/nickel-5.18-symbols.md](docs/nickel-5.18-symbols.md)).
-  Blocker: the device test on the Shine Color, above all that Nickel opens
-  such a copy at the new position. Later: ask in a dialog instead of
+  Blocker: the device test on the Shine Color (the first one opened the
+  right chapter at its start, which led to the `getById` hook). Later: ask in a dialog instead of
   leaving a position that needs an answer alone (O3/O4).
 
 ## Low priority (optional)

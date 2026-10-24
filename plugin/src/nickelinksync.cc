@@ -9,12 +9,14 @@
  * the server and applies the conflict rule.
  *
  * Opening (ReadingController::setVolume(Volume const&, Bookmark const&)):
- *   Nickel has already read the book from the database here, so a position
- *   written to the database now would not count, and Nickel would write its
- *   own back on the next page turn. Instead the hook asks the CLI
- *   (`pull --live --emit`) and, if there is a position to take, hands Nickel
- *   a copy of the Volume with that position (Content::setChapterIdBookmarked,
- *   setPercentRead). Nickel opens there and saves it itself. Only for
+ *   The hook asks the CLI (`pull --live --emit`) and, if there is a position
+ *   to take, sets it (Content::setChapterIdBookmarked, setPercentRead) in
+ *   both places Nickel takes it from: a copy of the Volume handed to
+ *   setVolume (the chapter), and the Volume that ReadingView::setupReader
+ *   loads again from the database through VolumeManager::getById (the
+ *   place in the chapter). The getById hook only changes that one book, and
+ *   only while the original setVolume runs. Nothing is written to the
+ *   database; Nickel opens at the position and saves it itself. Only for
  *   sideloaded books opened without a bookmark (not a link or a search
  *   result), and with a time limit so a missing network never blocks for
  *   long.
@@ -66,6 +68,10 @@ static const size_t kVolumeBytes = 64;
 // Originals, filled by NickelHook (.out).
 static void (*ReadingController__setVolume)(ReadingController *, const Volume *, const Bookmark *);
 static void (*ReadingView__leavingReadingExperience)(ReadingView *);
+// static Volume VolumeManager::getById(QString const& id, QString const&):
+// the Volume is returned through a hidden pointer (r0), which it also
+// returns in r0; the arguments follow in r1, r2.
+static Volume *(*VolumeManager__getById)(Volume *, const QString *, const QString *);
 
 // Resolved via dlsym.
 static Device *(*Device__getCurrentDevice)();  // returns Device& (r0)
@@ -84,6 +90,17 @@ static void (*Content__setPercentRead)(Volume *, const QVariant &);
 static bool g_active = false;
 // ContentID of the book opened last (GUI thread only).
 static QString g_open_id;
+
+// The position to set while the original setVolume runs (GUI thread only):
+// VolumeManager::getById applies it to the Volume of `id` it loads.
+struct Pending {
+    bool active = false;
+    bool applied = false;
+    QString id;
+    QByteArray position;
+    int percent = 0;
+};
+static Pending g_pending;
 
 static void log_line(const QString &msg)
 {
@@ -183,8 +200,32 @@ void _nh_ReadingController__setVolume(ReadingController *self, const Volume *vol
     Volume__copy(copy, volume);
     Content__setChapterIdBookmarked(copy, QVariant(p.position));
     Content__setPercentRead(copy, QVariant(p.percent));
+    g_pending.active = true;
+    g_pending.applied = false;
+    g_pending.id = id;
+    g_pending.position = p.position;
+    g_pending.percent = p.percent;
     ReadingController__setVolume(self, copy, bookmark);
+    if (!g_pending.applied) {
+        log_line(QStringLiteral("open %1: Nickel did not load the book again while opening").arg(id));
+    }
+    g_pending = Pending();
     Volume__dtor(copy);
+}
+
+extern "C" __attribute__((visibility("default")))
+Volume *_nh_VolumeManager__getById(Volume *out, const QString *id, const QString *other)
+{
+    VolumeManager__getById(out, id, other);
+    if (g_pending.active && *id == g_pending.id) {
+        Content__setChapterIdBookmarked(out, QVariant(g_pending.position));
+        Content__setPercentRead(out, QVariant(g_pending.percent));
+        if (!g_pending.applied) {
+            log_line(QStringLiteral("open %1: position set in the book Nickel loaded").arg(*id));
+        }
+        g_pending.applied = true;
+    }
+    return out;
 }
 
 extern "C" __attribute__((visibility("default")))
@@ -248,6 +289,13 @@ static struct nh_hook NickelInkSyncHook[] = {
         .lib     = "libnickel.so.1.0.0",
         .out     = nh_symoutptr(ReadingView__leavingReadingExperience),
         .desc    = "Push the position when a book is left",
+    },
+    {
+        .sym     = "_ZN13VolumeManager7getByIdERK7QStringS2_",
+        .sym_new = "_nh_VolumeManager__getById",
+        .lib     = "libnickel.so.1.0.0",
+        .out     = nh_symoutptr(VolumeManager__getById),
+        .desc    = "Set the pulled position in the book Nickel loads while opening it",
     },
     {0},
 };

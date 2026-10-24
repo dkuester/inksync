@@ -240,8 +240,8 @@ beiden Geräte beim Testen nicht durcheinander.
 - [~] **N4 Plugin Qt6**
   - [x] **ich:** NickelHook-Plugin (`plugin/`, Submodul
     `nicoverbruggen/NickelHook`, Branch `qt6-support`): Öffnen-Hook holt die
-    Position (`pull --live --emit`, höchstens etwa 15 s) und übergibt Nickel
-    eine Kopie des Buchs damit, Verlassen-Hook sendet sie im Hintergrund
+    Position (`pull --live --emit`, höchstens etwa 15 s) und setzt sie in
+    das Buch, das Nickel öffnet, Verlassen-Hook sendet sie im Hintergrund
     (`push --live`). Nur Tolino, nur mit Programm und `config.ini` in
     `.adds/NickelInkSync/`; Log `NickelInkSync.log` daneben.
   - [x] **ich:** CLI auf dem Gerät: `--live` (`mode=ro`, nie schreiben),
@@ -252,7 +252,16 @@ beiden Geräte beim Testen nicht durcheinander.
     plugin` / `just package`. CI-Schritt im Job `check`: Symbole gegen die
     5.18-Liste, ARM, nur Qt 6, Handler exportiert, Artefakt
     `NickelInkSync-tolino`.
-  - [ ] **du:** Test auf dem Shine Color (Anleitung im PR).
+  - [x] **du:** Erster Test auf dem Shine Color (2026-10-24, Book R):
+    Plugin aktiv, `pull` holt R3-45 (75 %) richtig, Nickel öffnet aber nur
+    das Kapitel (R3-1): Beim Öffnen lädt Nickel das Buch noch einmal aus
+    der Datenbank (`VolumeManager::getById`) und nimmt die Stelle im Kapitel
+    von dort. Der `push` danach (R3-13, hinter dem Server) wurde nach der
+    Regel `backwards` korrekt zurückgehalten.
+  - [x] **ich:** Zusätzlicher Hook auf `VolumeManager::getById`, nur
+    während des Öffnens und nur für dieses Buch: setzt die Position auch
+    im neu geladenen Buch (Weg 1, von dir gewählt).
+  - [ ] **du:** Zweiter Test auf dem Shine Color (Anleitung im PR).
 
 ## Optional (später)
 
