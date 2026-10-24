@@ -299,6 +299,10 @@ Book R (page starts, stored as `lpr` and `page.history.record`):
 | "Häuser Schatten Straße", in R2-99 | `eid` 361, offset 192, `pid` 78026 | `/body[1]/DocFragment[3]/body[1]/p[99]/text()[1].192` |
 | "Stuhl Garten Seite", in R3-85 | `eid` 513, offset 187, `pid` 126677 | `/body[1]/DocFragment[4]/body[1]/p[85]/text()[1].187` |
 
+[`tests/kindle.rs`](../kindle.rs) translates every highlight start and the
+Book R positions and compares them with the XPointers above; only q5w04
+(CDATA) comes out marked not exact, though on the right XPointer.
+
 ## KOReader state (`koreader/`)
 
 `metadata.epub.lua` from KOReader 2026.07 on macOS (`cre_dom_version`

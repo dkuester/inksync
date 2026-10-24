@@ -70,6 +70,13 @@ L = a week or more, including verification.
       point; every Tolino highlight in Book P and Book Q and the Book R
       positions round-trip unchanged, and KOReader's highlights map to
       exactly the Tolino's points; `pull` shows the device position
+- [x] Kindle positions read and translated (library only): own Ion and
+      KRDS readers, `lpr`/`fpr`/page history/highlights from the `.yjf`
+      and `.yjr`, KFX text and position maps (every stored `pid` matches);
+      KFX `eid` + offset → KOReader XPointer by aligning the KFX blocks
+      with the EPUB's block elements; every Book P/Q highlight start and
+      the Book R positions give KOReader's XPointer, only the CDATA case
+      (q5w04) is marked not exact
 
 ## Quick wins
 
@@ -82,8 +89,40 @@ L = a week or more, including verification.
 
 Order: everything the Tolino Shine Color (5.18) can test on its own comes
 first (reverse translation for plain EPUB, USB write-back, Qt6 symbols and
-plugin); the Kobo (4.46: kepub reverse translation, write-back, Qt5 plugin)
-follows in a pass of its own.
+plugin). **Right after that, before anything else: the manual book
+mapping in the CLI, then a desktop client with a graphical UI.**
+Maintenance and bug fixes may be slotted in at any time. The Kobo (4.46:
+kepub reverse translation, write-back, Qt5 plugin) follows in a pass of
+its own.
+
+- **Manual book mapping in the CLI** (M–L): link a book on a device
+  (kepub, an EPUB with another hash, a Kindle KFX) to the EPUB and its
+  KOReader hash, and sync through that link. Why: without the mapping
+  there is no sync between kepub and EPUB and no Kindle sync. A manual
+  link wins over the automatic hash match; translating the position
+  between two different files needs matching chapter hrefs or a text
+  anchor. Reference: BookOrbit's hash matching and position converter
+  (AGPL-3.0, concept only, see the license note in
+  [SCOPE.md](SCOPE.md#license)). Test case: *Heat 2* on the two reference
+  devices.
+- **Desktop client with a graphical UI** (L): right after the CLI
+  mapping, on the same library: devices and books, creating mappings,
+  starting a sync. egui/eframe (pure Rust, MIT/Apache, no WebView), one
+  code base: macOS first (`.app` in a `.dmg`), then Windows (`.exe`),
+  Linux optional as an AppImage built on an old glibc baseline so it runs
+  on as many distributions and versions as possible. Builds are unsigned
+  at first (Gatekeeper and SmartScreen warn on first start). First
+  version: Tolino and Kobo (read, write back), Kindle read-only; push/pull
+  per button with the `confirm` prompt; mapping suggestions by title and
+  author (Kindle: `content_id`) to confirm, unmapped books listed apart;
+  EPUBs from a configurable Calibre library (read-only); copying books from
+  it to a Tolino or Kobo, on a Kobo optionally converted with kepubify
+  (MIT), which creates the mapping kepub ↔ source EPUB automatically;
+  settings dialog with the password in the system keychain; configuration
+  and mappings shared with the CLI; German and English; side-by-side device
+  view, restoring the database backup, sync history, release notice.
+  kepubify is bundled (one binary per platform, a pinned and
+  checksum-verified release, with its MIT notice).
 
 - **Read-only device database layer** (S–M): reading the books and their
   positions is done (`status --device`); still to do: resolve
@@ -111,13 +150,6 @@ follows in a pass of its own.
 
 ## Low priority (optional)
 
-- **Manual book mapping *(optional)*** (M–L): link several file hashes (kepub
-  and source EPUB, or two different editions) to one book so they share
-  progress; a manual link wins over the automatic hash match. Translating the
-  position between two different files needs matching chapter hrefs or a
-  text anchor. Reference: BookOrbit's hash matching and position converter
-  (AGPL-3.0, concept only, see the license note in [SCOPE.md](SCOPE.md#license)).
-  Test case: *Heat 2* on the two reference devices.
 - **Settings dialog on the device *(optional)*** (M): server, user and
   device name in Nickel instead of editing `config.ini`.
 - **Sync status in the book menu *(optional)*** (M): "last synced from
@@ -131,12 +163,12 @@ Feasibility checks (each ends in a yes/no and a sketch, not in code) and
 what follows from a positive one. Both families are outside the current scope (Nickel devices only, see
 [SCOPE.md](SCOPE.md)).
 
-- **Kindle ↔ KOSync: translation and book mapping** (L): read `lpr`
-  from the `.yjf` of a mounted Kindle, translate KFX `eid` + offset to a
-  KOReader XPointer by aligning the KFX blocks with the EPUB, and link the
-  KFX (`content_id`, title, author) to the EPUB's hash. Why: the feasibility
-  check (see "Recently completed") found the position readable over USB and
-  character-exact. Depends on the manual book mapping; writing back is
+- **Kindle ↔ KOSync: CLI and book mapping** (M): read `lpr` from the
+  `.yjf` of a mounted Kindle in `status --device` and link the KFX
+  (`content_id`, title, author) to the EPUB's hash; the reader and the
+  translation to a KOReader XPointer are done (see "Recently completed").
+  Why: the feasibility check found the position readable over USB and
+  character-exact. Depends on the manual book mapping in the CLI; writing back is
   unchecked (`cc.db` and Amazon's own sync also hold the position).
   Users are assumed to have no jailbreak: the base feature set is the
   desktop CLI over USB; a jailbroken Kindle only adds to it (`cc.db`, sync

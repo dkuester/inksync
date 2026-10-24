@@ -19,6 +19,13 @@ normale EPUBs, P2 am Tolino, N3, N4. Danach kommt der **Kobo** (Clara BW,
 K4 rückwärts für kepub (`#kobo.N.M`), P2 am Kobo, N1, N2. So geraten die
 beiden Geräte beim Testen nicht durcheinander.
 
+**Danach zuerst D1, dann D2:** Sobald der Tolino-Durchgang abgeschlossen
+ist, kommt die **manuelle Buchzuordnung in der CLI (D1)**, danach der
+**Client mit grafischer Oberfläche (D2)**, mit höchster Priorität und vor
+allem anderen (auch vor dem Kobo-Durchgang). Ohne die Zuordnung gibt es
+weder den Sync kepub ↔ EPUB noch den Kindle-Sync. Wartung und Fehlerbehebung
+dürfen jederzeit dazwischengeschoben werden.
+
 ## Grundlagen
 
 - [x] **G1 Lizenz** · PR #5
@@ -52,6 +59,71 @@ beiden Geräte beim Testen nicht durcheinander.
     [`tests/fixtures/README.md`](tests/fixtures/README.md).
   - [x] **du:** Gekürzte Daten vom Clara BW und Shine Color durchgesehen und
     freigegeben, bevor sie ins Repo kamen. Es ging um deine Lesedaten.
+
+## Desktop-Client
+
+- [ ] **D1 CLI mit manueller Buchzuordnung** · höchste Priorität nach dem
+  Tolino-Durchgang. Löst O1 ab und entblockt den Sync kepub ↔ EPUB und den
+  Kindle-Sync (L1).
+  - [ ] **ich:** Zuordnungsspeicher: Buch auf dem Gerät (kepub, EPUB unter
+    anderem Hash, KFX) ↔ EPUB und KOReader-Prüfsumme; Testfall Heat 2.
+  - [ ] **ich:** Befehle zum Anlegen, Anzeigen und Löschen einer Zuordnung;
+    Vorschläge aus Titel und Autor (beim Kindle auch `content_id`).
+  - [ ] **ich:** `status`/`push`/`pull` nutzen die Zuordnung; Positionen
+    werden in der zugeordneten EPUB übersetzt.
+- [ ] **D2 Desktop-Client mit grafischer Oberfläche** · direkt nach D1.
+  Baut auf derselben Bibliothek auf: Geräte und Bücher anzeigen, Zuordnung
+  anlegen, Sync auslösen.
+  - [x] **du:** Plattformen festgelegt: zuerst **macOS**, dann **Windows**,
+    Linux optional, dann für möglichst viele Distributionen und Versionen.
+  - [x] **du:** Funktionsumfang der ersten Version festgelegt (2026-10-24):
+    - **Geräte:** Tolino und Kobo (lesen, zurückschreiben, sobald es in der
+      CLI fertig ist), Kindle nur lesen (Position zum Server).
+    - **Sync:** Positionen anzeigen, Push/Pull per Knopf mit Rückfrage nach
+      der `confirm`-Einstellung, wie in der CLI. Kein automatischer Sync
+      beim Anstecken.
+    - **Zuordnung:** Vorschläge nach Titel und Autor (Kindle: `content_id`),
+      du bestätigst oder wählst selbst. Bücher ohne Zuordnung und ohne
+      gleiche Prüfsumme stehen in einer Liste „Nicht zugeordnet“ und werden
+      nicht synchronisiert.
+    - **EPUB-Originale:** aus einem konfigurierbaren Bibliotheksordner, der
+      **Calibre-Bibliothek** (nur lesend, `metadata.db` als unveränderliche
+      SQLite-Datei).
+    - **Bücher aufs Gerät kopieren:** aus der Calibre-Bibliothek auf Tolino
+      oder Kobo. Beim Kobo bietet die App an, das Buch mit **kepubify**
+      (MIT) nach kepub umzuwandeln. Beim Kopieren legt die App die
+      Zuordnung selbst an (kepub ↔ Original-EPUB), weil sie beide Dateien
+      kennt; das Tolino-EPUB bleibt unverändert und hat dieselbe Prüfsumme.
+    - **Einstellungen:** Dialog für Server, Benutzer, Passwort, Gerätename
+      und `confirm`; das Passwort liegt im Schlüsselbund (macOS) bzw. in
+      der Windows-Anmeldeinformationsverwaltung, die Datei hält nur den
+      Benutzernamen.
+    - **Gemeinsame Daten:** CLI und GUI teilen Konfiguration und
+      Zuordnungen.
+    - **Oberfläche:** normales Fenster, Deutsch und Englisch nach
+      Systemsprache, umschaltbar.
+    - **Außerdem:** Geräteansicht nebeneinander (O5), Sicherungskopie der
+      Gerätedatenbank per Knopf zurückspielen, Verlauf der Syncs,
+      Hinweis auf ein neues Release (keine Selbstaktualisierung).
+  - [x] **du:** kepubify wird **mitgeliefert**: ein Binary je Plattform
+    (macOS, Windows, Linux im AppImage), mit dem MIT-Lizenzhinweis von
+    kepubify in der App und im Paket.
+  - [ ] **ich:** kepubify-Binaries in der CI laden (feste Version, Prüfsumme
+    gegen das Release prüfen) und ins Paket legen; Lizenzhinweis in
+    „Über“ und neben dem Binary.
+  - [ ] **ich:** GUI mit **egui/eframe** (reines Rust, MIT/Apache, ohne
+    WebView, ein Code für alle drei Systeme).
+  - [ ] **ich:** macOS: `.app`-Bundle als `.dmg`, aus der CI (macOS-Runner);
+    ohne Apple Developer ID nicht notarisiert (erster Start per
+    Rechtsklick → „Öffnen“).
+  - [ ] **ich:** Windows: `.exe` aus der CI (Windows-Runner); ohne
+    Code-Signing warnt SmartScreen beim ersten Start.
+  - [ ] **ich (optional):** Linux als **AppImage**, gebaut auf einer alten
+    glibc-Basis (ältestes noch unterstütztes Ubuntu LTS), damit es auf
+    möglichst vielen Distributionen und Versionen läuft; keine Abhängigkeit
+    außer Grafik- und Fensterbibliotheken (X11/Wayland, OpenGL), die jede
+    Desktop-Installation hat. Ein statischer musl-Build geht für die GUI
+    nicht, weil die Grafiktreiber zur Laufzeit geladen werden.
 
 ## Kern
 
@@ -244,7 +316,11 @@ beiden Geräte beim Testen nicht durcheinander.
 ## Optional (später)
 
 - [ ] **O1 Manuelle Zuordnung** von Büchern (kepub ↔ EPUB), Testfall Heat 2.
-  Vorbild: BookOrbit, nur als Konzept (AGPL-3.0).
+  **Geht in D1 auf** (CLI mit manueller Buchzuordnung, höchste Priorität).
+  Vorbild: BookOrbit, nur als Konzept (AGPL-3.0). Blockiert auch den
+  Kindle-Sync (L1): Nichts im KFX führt zur EPUB-Prüfsumme; Kandidaten für
+  den Schlüssel sind `content_id` (32 Hex-Ziffern, auch im Dateinamen),
+  `title` (= Dateiname beim Senden) und `author`.
 - [x] **O2 Normales EPUB auf Kobo 4.x** · **du:** ein normales EPUB auf den Clara
   geladen und geöffnet. Ergebnis: wie auf dem Tolino `#point(...)`,
   Kapitelzeilen sind ToC-Einträge (`SCOPE.md`).
@@ -277,7 +353,19 @@ beiden Geräte beim Testen nicht durcheinander.
     (`.yjf`), mit Jailbreak zusätzlich `cc.db` und Sync ohne Kabel
     (Daemon auf dem Gerät). Nichts aus dem Grundumfang darf den Jailbreak
     brauchen.
-  - [ ] **ich:** KFX-Leser und Übersetzung `eid` + Offset → XPointer
-    (braucht O1 für die Buchzuordnung).
+  - [x] **ich:** KFX-Leser und Übersetzung `eid` + Offset → XPointer
+    (`src/ion.rs`, `src/krds.rs`, `src/kfx.rs`, `src/kindle.rs`, eigener
+    Ion- und KRDS-Leser): `lpr`, `fpr`, `page.history.record` und
+    Markierungen aus `.yjf`/`.yjr`, Text und Positionskarten aus dem KFX;
+    jede gespeicherte `pid` passt zu den Karten. Alle Markierungsanfänge in
+    Book P und Q und die Book-R-Positionen ergeben KOReaders XPointer;
+    nur q5w04 (CDATA) ist nicht exakt (Text weicht ab, gefunden über den
+    Text danach).
+  - [!] **ich:** Kindle in die CLI: `status --device` für einen gemounteten
+    Kindle (KFX + `.sdr` lesen, Position übersetzen), nur lesend.
+    Blockiert durch D1 (Buchzuordnung in der CLI): ohne Zuordnung KFX ↔
+    EPUB-Prüfsumme kein Sync.
+    Der Leser und die Übersetzung liegen fertig in der Bibliothek
+    (`kindle::to_xpointer`).
   - [ ] **du:** Prüfen, ob der Kindle eine geänderte `.yjf` übernimmt
     (Flugmodus, damit Amazons Sync nicht dazwischenfunkt).
