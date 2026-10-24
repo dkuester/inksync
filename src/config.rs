@@ -69,6 +69,21 @@ impl Config {
     Some(base.join("nickelinksync/config.ini"))
   }
 
+  /// Where `pull --write` keeps database backups:
+  /// `$NICKELINKSYNC_BACKUP_DIR`, else `$XDG_DATA_HOME/nickelinksync/backups`,
+  /// else `~/.local/share/nickelinksync/backups`.
+  pub fn backup_dir() -> Option<PathBuf> {
+    let var = |name| std::env::var_os(name).filter(|v| !v.is_empty());
+    if let Some(dir) = var("NICKELINKSYNC_BACKUP_DIR") {
+      return Some(PathBuf::from(dir));
+    }
+    let base = match var("XDG_DATA_HOME") {
+      Some(dir) => PathBuf::from(dir),
+      None => PathBuf::from(var("HOME")?).join(".local/share"),
+    };
+    Some(base.join("nickelinksync/backups"))
+  }
+
   pub fn load(path: &Path) -> Result<Self, Error> {
     let text = std::fs::read_to_string(path).map_err(|e| Error::Io(path.to_path_buf(), e))?;
     Self::parse(path, &text)

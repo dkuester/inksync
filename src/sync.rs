@@ -219,6 +219,18 @@ pub fn parse_timestamp(s: &str) -> Option<i64> {
   Some(days_from_civil(y, m, d) * 86_400 + hh * 3600 + mm * 60 + ss)
 }
 
+/// `2026-01-02T12:00:00Z`, as Nickel stores `DateLastRead`.
+pub fn iso_timestamp(t: i64) -> String {
+  let (days, secs) = (t.div_euclid(86_400), t.rem_euclid(86_400));
+  let (y, m, d) = civil_from_days(days);
+  format!(
+    "{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z",
+    secs / 3600,
+    secs / 60 % 60,
+    secs % 60
+  )
+}
+
 /// `2026-01-02 12:00:00 UTC`.
 pub fn format_timestamp(t: i64) -> String {
   let (days, secs) = (t.div_euclid(86_400), t.rem_euclid(86_400));
@@ -273,6 +285,11 @@ mod tests {
     assert_eq!(parse_timestamp(""), None);
     assert_eq!(format_timestamp(1_767_355_200), "2026-01-02 12:00:00 UTC");
     assert_eq!(format_timestamp(1_709_251_199), "2024-02-29 23:59:59 UTC");
+    assert_eq!(iso_timestamp(1_767_355_200), "2026-01-02T12:00:00Z");
+    assert_eq!(
+      parse_timestamp(&iso_timestamp(1_709_251_199)),
+      Some(1_709_251_199)
+    );
   }
 
   fn server(progress: &str, timestamp: i64) -> Progress {

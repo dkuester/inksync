@@ -1,7 +1,8 @@
 //! Access to the Nickel device database (`.kobo/KoboReader.sqlite`).
 //!
 //! Lists sideloaded books and reads their stored reading position. The
-//! database is opened read-only unless a write is explicitly requested.
+//! database is opened read-only unless a write is explicitly requested
+//! ([`Device::write_positions`]), and then only after a backup copy.
 
 use std::fmt;
 use std::io;
@@ -18,6 +19,8 @@ pub enum Error {
   NotADevice(PathBuf),
   Io(PathBuf, io::Error),
   Sqlite(rusqlite::Error),
+  /// Writing was refused before anything was changed.
+  Refused(String),
 }
 
 impl fmt::Display for Error {
@@ -30,6 +33,7 @@ impl fmt::Display for Error {
       ),
       Error::Io(path, e) => write!(f, "{}: {e}", path.display()),
       Error::Sqlite(e) => write!(f, "device database: {e}"),
+      Error::Refused(e) => write!(f, "not written: {e}"),
     }
   }
 }
@@ -73,6 +77,132 @@ impl Device {
   pub fn book_file(&self, book: &Book) -> PathBuf {
     self.root.join(book.onboard_path())
   }
+
+  pub fn db_path(&self) -> PathBuf {
+    self.root.join(".kobo/KoboReader.sqlite")
+  }
+
+  /// Writes new positions for books, all in one transaction, after copying
+  /// the database to `backup` (a file that must not exist yet). Only on a
+  /// mounted device (a readable `.kobo/version`), and only while SQLite has
+  /// no journal next to the database: a journal means someone else is
+  /// writing, or a write was cut off and SQLite has to roll it back first.
+  /// Afterwards no journal may be left over.
+  ///
+  /// Nickel keeps the database in WAL mode, and that stays as it is. The
+  /// connection takes an exclusive lock first, so SQLite needs no `-shm`
+  /// file, and after the commit a checkpoint moves the change from the
+  /// `-wal` file into the database, so the device holds one file again.
+  pub fn write_positions(&self, writes: &[Write], backup: &Path) -> Result<(), Error> {
+    if self.firmware.is_none() {
+      return Err(Error::Refused(format!(
+        "{} has no readable .kobo/version, so it does not look like a mounted device",
+        self.root.display()
+      )));
+    }
+    let db_path = self.db_path();
+    if let Some(journal) = journal_files(&db_path).into_iter().next() {
+      return Err(Error::Refused(format!(
+        "{} exists; eject the device properly and mount it again",
+        journal.display()
+      )));
+    }
+    copy_backup(&db_path, backup)?;
+    let mut conn = Connection::open_with_flags(&db_path, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
+    // Before the first access, so WAL never sets up shared memory.
+    conn.pragma_update(None, "locking_mode", "EXCLUSIVE")?;
+    let tx = conn.transaction()?;
+    for write in writes {
+      let changed = tx.execute(
+        "UPDATE content SET ChapterIDBookmarked = ?1, ___PercentRead = ?2,
+                DateLastRead = coalesce(?3, DateLastRead)
+         WHERE ContentID = ?4 AND ContentType = '6'",
+        rusqlite::params![
+          write.position,
+          write.percent,
+          write.last_read,
+          write.content_id
+        ],
+      )?;
+      if changed != 1 {
+        // Dropping the transaction rolls everything back.
+        return Err(Error::Refused(format!(
+          "{} is not a book in the database",
+          write.content_id
+        )));
+      }
+    }
+    tx.commit()?;
+    let wal: String = conn.query_row("PRAGMA journal_mode", [], |row| row.get(0))?;
+    if wal.eq_ignore_ascii_case("wal") {
+      // (busy, frames in the WAL, frames checkpointed)
+      let (busy, _, _): (i64, i64, i64) =
+        conn.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| {
+          Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        })?;
+      if busy != 0 {
+        return Err(Error::Io(
+          db_path.clone(),
+          io::Error::other("checkpoint did not finish; do not eject yet, run again"),
+        ));
+      }
+    }
+    conn.close().map_err(|(_, e)| e)?;
+    if let Some(journal) = journal_files(&db_path).into_iter().next() {
+      return Err(Error::Io(
+        journal,
+        io::Error::other("left over after writing; do not eject yet, run again"),
+      ));
+    }
+    Ok(())
+  }
+}
+
+/// A new position for one book.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Write {
+  pub content_id: String,
+  /// For `ChapterIDBookmarked`.
+  pub position: String,
+  /// For `___PercentRead`.
+  pub percent: i64,
+  /// A new `DateLastRead` (ISO 8601), or `None` to keep it.
+  pub last_read: Option<String>,
+}
+
+/// SQLite's journal files for `db`, if any exist.
+fn journal_files(db: &Path) -> Vec<PathBuf> {
+  ["-journal", "-wal", "-shm"]
+    .iter()
+    .map(|suffix| {
+      let mut name = db.as_os_str().to_owned();
+      name.push(suffix);
+      PathBuf::from(name)
+    })
+    .filter(|p| p.exists())
+    .collect()
+}
+
+/// Copies `db` to `backup` and checks the copy byte for byte.
+fn copy_backup(db: &Path, backup: &Path) -> Result<(), Error> {
+  if backup.exists() {
+    return Err(Error::Refused(format!(
+      "{} already exists",
+      backup.display()
+    )));
+  }
+  if let Some(dir) = backup.parent() {
+    std::fs::create_dir_all(dir).map_err(|e| Error::Io(dir.to_path_buf(), e))?;
+  }
+  std::fs::copy(db, backup).map_err(|e| Error::Io(backup.to_path_buf(), e))?;
+  let read = |p: &Path| std::fs::read(p).map_err(|e| Error::Io(p.to_path_buf(), e));
+  if read(db)? != read(backup)? {
+    return Err(Error::Refused(format!(
+      "the backup {} differs from the database",
+      backup.display()
+    )));
+  }
+  Ok(())
 }
 
 /// From `.kobo/version`: serial, kernel, firmware, …, model ID.

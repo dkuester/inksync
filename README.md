@@ -17,8 +17,9 @@ the same progress.
 > **Status:** early development. With a USB-mounted Kobo or Tolino,
 > `nickelinksync push` sends the reading position of each sideloaded book
 > to a KOSync server, `status` shows the device and server positions side by
-> side, and `pull` shows what a newer server position would change, without
-> writing to the device yet. The scope and the device-database findings it
+> side, and `pull` shows what a newer server position would change; on a
+> Tolino, `pull --write` writes it to the device (experimental, with a
+> backup first). The scope and the device-database findings it
 > rests on are in [SCOPE.md](SCOPE.md), the next steps are in
 > [ROADMAP.md](ROADMAP.md).
 
@@ -34,11 +35,20 @@ nickelinksync pull --device /Volumes/KOBOeReader
 |---|---|
 | `status` | Lists the sideloaded books with hash, stored position, KOReader XPointer and, if configured, the position on the server. |
 | `push` | Sends each book's position to the server. A position the server got after the book was last read on the device is never overwritten; by default it also asks before moving the server back to an earlier place in the book (see `confirm` below). `--force` sends without asking, `--dry-run` only shows what would be sent. |
-| `pull` | Dry run only: shows which books have a newer position on the server, how the device would store it (Tolino so far) and where it would ask first; `--force` shows the result without asking. Writing it back to the device is not implemented yet. |
+| `pull` | Shows which books have a newer position on the server, how the device would store it and where it would ask first. Only with `--write` is it written to the device (Tolino so far, experimental, see below); `--force` takes the server position without asking. |
 
 All three take `--book <text>` to limit them to books whose title or file
 path contains the text, and `--config <file>` for another configuration
-file. The device is only read, never written.
+file. The device is only read, never written, except by `pull --write`.
+
+`pull --write` first copies `.kobo/KoboReader.sqlite` to
+`~/.local/share/nickelinksync/backups/KoboReader-<UTC time>.sqlite` (or
+`$XDG_DATA_HOME/nickelinksync/backups`, or `$NICKELINKSYNC_BACKUP_DIR`),
+then sets the position of all books in one transaction. It refuses to
+write without `.kobo/version` (not a mounted device) or while SQLite
+journal files lie next to the database. Eject the device before you open
+the book. To undo, copy the backup back to `.kobo/KoboReader.sqlite` while
+the device is mounted.
 
 ## Configuration
 

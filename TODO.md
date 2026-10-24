@@ -173,11 +173,19 @@ beiden Geräte beim Testen nicht durcheinander.
     Tolino Shine Color, Buch in KOReader mit Sync geöffnet: landet an der
     richtigen Stelle (Book R, siehe K4).
   - [ ] **du:** Ein Durchlauf mit Kobo, Tolino und KOReader am selben Buch.
-- [ ] **P2 Rückschreiben per USB**
-  - [ ] **ich:** `pull --write`: Sicherungskopie der Datenbank, dann
-    `ChapterIDBookmarked` und `___PercentRead` setzen.
-  - [ ] **du:** Gerät auswerfen und prüfen, ob Nickel die neue Position
-    übernimmt oder überschreibt.
+- [~] **P2 Rückschreiben per USB** (erst Tolino, Kobo im Kobo-Durchgang)
+  - [x] **ich:** `pull --write` (`db::Device::write_positions`):
+    Sicherungskopie nach `~/.local/share/nickelinksync/backups/`, dann in
+    einer Transaktion `ChapterIDBookmarked` und `___PercentRead` setzen;
+    `DateLastRead` bleibt, außer es ist neuer als der Server, dann eine
+    Sekunde vor dem Server-Zeitstempel (Begründung in `SCOPE.md`). Die
+    Tolino-Datenbank ist im WAL-Modus: exklusive Sperre, Checkpoint nach dem
+    Commit, danach keine `-wal`/`-shm`/`-journal`-Dateien. Schreibt nur mit
+    `.kobo/version`. An einer Kopie der Shine-Color-Datenbank geprüft.
+  - [ ] **du:** Am Tolino: `pull --write`, auswerfen, Buch öffnen. Übernimmt
+    Nickel die neue Position oder überschreibt es sie?
+  - [ ] **ich (Kobo-Durchgang):** dasselbe für den Kobo (braucht K4
+    rückwärts für kepub).
 
 - [x] **P3 Rückfrage bei abweichender Position (einstellbar)** · PR #18
   - [x] **ich:** `confirm = never | backwards | always` in der Konfiguration
