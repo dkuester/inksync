@@ -303,7 +303,19 @@ beiden Geräte beim Testen nicht durcheinander.
     Server mit der Tolino-Position überschrieben.
   - [x] **ich:** Kein `push` mehr, wenn Nickel nach dem Sprung nicht im
     geholten Kapitel steht; `pull --live` schreibt nicht mehr „Dry run“.
-  - [ ] **du + ich:** Weg für den Sprung in ein anderes Kapitel entscheiden.
+  - [x] **du:** Siebter Test (2026-10-24): Sprung innerhalb von Kapitel 2
+    (R2-121 nach R2-170): wieder „done“, Nickel bleibt stehen. Weg C ist
+    damit gescheitert. Der `push` danach hat R2-170 erneut überschrieben,
+    weil die Sperre dagegen erst im neuen Plugin war, das ich dich nicht
+    installieren ließ (mein Fehler).
+  - [x] **ich:** Weg B (vorher von dir freigegeben, falls C scheitert): vor
+    dem Öffnen still WLAN (höchstens 10 s), `pull --live --write --emit`
+    schreibt die Position in die Zeile des Buchs, während Nickel läuft
+    (SQLite-Sperren, Nickels WAL bleibt, eine Sicherung am Tag mit SQLites
+    Backup-Funktion in `.adds/NickelInkSync/backups/`), dazu die
+    `Volume`-Kopie für das Kapitel. Kein `push` für ein Buch ohne Abgleich
+    beim Öffnen oder außerhalb des geholten Kapitels.
+  - [ ] **du:** Achter Test: öffnet das Buch an der KOReader-Stelle?
 
 ## Optional (später)
 

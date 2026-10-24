@@ -147,6 +147,30 @@ to cross chapters.
 
 All optional in the plugin: without them it opens as before and logs why.
 
+**Device tests of step 3** (same day, after opening at once and pulling
+in the background): from chapter 2 to chapter 1, and within chapter 2
+from R2-121 to R2-170. Both times `goToBookmark` returned true and
+Nickel stayed where it was (`bookmarkForCurrentLocation` 2 s later).
+`ReadingController::followLink(Bookmark const&)` goes the same way
+(`shortcoverForBookmark`, then `goToBookmark(Shortcover, Bookmark)`), and
+the reading menu's scrubber jumps by page number through the reader, not
+by bookmark. A changed bookmark does not move the open book.
+
+### Step 4: write the row, then open
+
+What did work is the USB write-back: a consistent book row in the
+database, loaded by Nickel. So the plugin does that while Nickel runs,
+just before it opens the book: it waits for Wi-Fi (silently, at most
+10 s, in a local event loop), runs `pull --live --write --emit` for that
+one book, which writes the position into the row through SQLite's normal
+locking (one backup a day with SQLite's backup API), and hands the
+original `setVolume` a copy of the `Volume` with the same position, so the
+chapter (from the `Volume`) and the place in it (from the row that
+`setupReader` loads through `getById`) agree. Three seconds later it checks
+that Nickel stands in the pulled chapter. A book opened without a pull, or
+not in the pulled chapter, is not pushed when it is left: in the device
+tests that push overwrote the newer position KOReader had sent.
+
 ## The push path
 
 After the original `leavingReadingExperience()` the position is saved,

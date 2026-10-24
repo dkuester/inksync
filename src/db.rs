@@ -124,28 +124,7 @@ impl Device {
     let mut conn = Connection::open_with_flags(&db_path, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
     // Before the first access, so WAL never sets up shared memory.
     conn.pragma_update(None, "locking_mode", "EXCLUSIVE")?;
-    let tx = conn.transaction()?;
-    for write in writes {
-      let changed = tx.execute(
-        "UPDATE content SET ChapterIDBookmarked = ?1, ___PercentRead = ?2,
-                DateLastRead = coalesce(?3, DateLastRead)
-         WHERE ContentID = ?4 AND ContentType = '6'",
-        rusqlite::params![
-          write.position,
-          write.percent,
-          write.last_read,
-          write.content_id
-        ],
-      )?;
-      if changed != 1 {
-        // Dropping the transaction rolls everything back.
-        return Err(Error::Refused(format!(
-          "{} is not a book in the database",
-          write.content_id
-        )));
-      }
-    }
-    tx.commit()?;
+    update_rows(&mut conn, writes)?;
     let wal: String = conn.query_row("PRAGMA journal_mode", [], |row| row.get(0))?;
     if wal.eq_ignore_ascii_case("wal") {
       // (busy, frames in the WAL, frames checkpointed)
@@ -169,6 +148,94 @@ impl Device {
     }
     Ok(())
   }
+}
+
+impl Device {
+  /// Writes new positions while Nickel runs and holds the database (the
+  /// plugin, just before Nickel opens the book): Nickel reads the book row
+  /// again when it opens a book, so a consistent row is what makes it open
+  /// at the position. Unlike [`Device::write_positions`] this shares the
+  /// database with Nickel through SQLite's normal locking, leaves its WAL
+  /// files alone and keeps one backup per day in `backups` (the two newest
+  /// stay), made with SQLite's backup API, which is consistent while Nickel
+  /// writes. `today` names it (`20261024`).
+  pub fn write_live(
+    &self,
+    writes: &[Write],
+    backups: &Path,
+    today: &str,
+  ) -> Result<Option<PathBuf>, Error> {
+    if !self.live {
+      return Err(Error::Refused(
+        "use write_positions for a device mounted over USB".into(),
+      ));
+    }
+    let db_path = self.db_path();
+    let mut conn = Connection::open_with_flags(&db_path, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
+    conn.busy_timeout(std::time::Duration::from_secs(5))?;
+    let backup = backups.join(format!("KoboReader-{today}.sqlite"));
+    let made = if backup.exists() {
+      None
+    } else {
+      std::fs::create_dir_all(backups).map_err(|e| Error::Io(backups.to_path_buf(), e))?;
+      let partial = backups.join(format!("KoboReader-{today}.sqlite.part"));
+      conn.backup(rusqlite::MAIN_DB, &partial, None)?;
+      std::fs::rename(&partial, &backup).map_err(|e| Error::Io(backup.clone(), e))?;
+      prune_backups(backups, 2)?;
+      Some(backup)
+    };
+    update_rows(&mut conn, writes)?;
+    conn.close().map_err(|(_, e)| e)?;
+    Ok(made)
+  }
+}
+
+/// Sets the position of each book in one transaction, all or nothing.
+fn update_rows(conn: &mut Connection, writes: &[Write]) -> Result<(), Error> {
+  let tx = conn.transaction()?;
+  for write in writes {
+    let changed = tx.execute(
+      "UPDATE content SET ChapterIDBookmarked = ?1, ___PercentRead = ?2,
+              DateLastRead = coalesce(?3, DateLastRead)
+       WHERE ContentID = ?4 AND ContentType = '6'",
+      rusqlite::params![
+        write.position,
+        write.percent,
+        write.last_read,
+        write.content_id
+      ],
+    )?;
+    if changed != 1 {
+      // Dropping the transaction rolls everything back.
+      return Err(Error::Refused(format!(
+        "{} is not a book in the database",
+        write.content_id
+      )));
+    }
+  }
+  tx.commit()?;
+  Ok(())
+}
+
+/// Keeps the `keep` newest `KoboReader-*.sqlite` in `dir` (by name, which
+/// starts with the date).
+fn prune_backups(dir: &Path, keep: usize) -> Result<(), Error> {
+  let io = |e| Error::Io(dir.to_path_buf(), e);
+  let mut names: Vec<PathBuf> = std::fs::read_dir(dir)
+    .map_err(io)?
+    .filter_map(|e| e.ok().map(|e| e.path()))
+    .filter(|p| {
+      p.file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|n| n.starts_with("KoboReader-") && n.ends_with(".sqlite"))
+    })
+    .collect();
+  names.sort();
+  let old = names.len().saturating_sub(keep);
+  for path in &names[..old] {
+    std::fs::remove_file(path).map_err(|e| Error::Io(path.clone(), e))?;
+  }
+  Ok(())
 }
 
 /// A new position for one book.

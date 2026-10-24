@@ -39,7 +39,8 @@ nickelinksync pull --device /Volumes/KOBOeReader
 
 All three take `--book <text>` to limit them to books whose title or file
 path contains the text, and `--config <file>` for another configuration
-file. The device is only read, never written, except by `pull --write`.
+file. The device is only read, never written, except by `pull --write`
+(and by the plugin, see below).
 
 `pull --write` first copies `.kobo/KoboReader.sqlite` to
 `~/.local/share/nickelinksync/backups/KoboReader-<UTC time>.sqlite` (or
@@ -102,8 +103,8 @@ password = your password
 
 On a Tolino with firmware 5.x, a NickelHook plugin syncs without a
 computer, over Wi-Fi: when you open a sideloaded book it fetches a newer
-position from the server in the background and jumps there, when you
-leave the book it sends yours. It
+position from the server and the book opens there, when you leave the
+book it sends yours. It
 calls the same `nickelinksync` program on the device and follows the same
 `confirm` rule; it cannot ask yet, so a position that needs an answer is
 left alone and noted in the log. On a Kobo the plugin stays inactive for
@@ -120,11 +121,16 @@ now.
    installs the plugin and restarts.
 
 The log is `.adds/NickelInkSync/NickelInkSync.log`. The plugin switches
-Wi-Fi on when it needs it, first without a dialog and after 15 seconds
-with the Tolino's Wi-Fi dialog; there is no need for the Tolino's own
-"Sync now" (that is the Tolino cloud). Opening and leaving a book never
-wait for the network: the book opens at the Tolino's position and jumps
-once the server's has arrived, the push follows when Wi-Fi is up.
+Wi-Fi on when it needs it; there is no need for the Tolino's own
+"Sync now" (that is the Tolino cloud). Opening a book waits at most about
+10 seconds for Wi-Fi (no dialog) and 15 seconds for the server. To open
+at the server's position, the plugin writes it into the book's row in the
+device database just before Nickel opens the book, while Nickel runs; it
+keeps one backup of the database a day in `.adds/NickelInkSync/backups/`
+(the two newest). Without Wi-Fi the book opens unchanged, and leaving it
+then sends nothing, so an older Tolino position never overwrites a newer
+one on the server. Leaving a book never waits: the push follows when
+Wi-Fi is up, after 15 seconds with the Tolino's Wi-Fi dialog.
 
 **Uninstall:** create an empty file `.adds/NickelInkSync/uninstall`, eject
 and power the Tolino off and on again (the file is only checked when the

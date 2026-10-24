@@ -664,6 +664,21 @@ fn pull(target: &Target, force: bool, write: bool, emit: bool) -> Result<bool> {
       .chars()
       .filter(|c| !"-:".contains(*c))
       .collect();
+    if target.live {
+      // Only the one book the plugin is about to open.
+      if target.content_id.is_none() {
+        return Err("--write with --live needs --content-id".into());
+      }
+      let made = session.device.write_live(&writes, &dir, &stamp[..8])?;
+      println!(
+        "\nWrote {} position(s) to the device database while Nickel runs.",
+        writes.len()
+      );
+      if let Some(backup) = made {
+        println!("Backup of the database (one a day): {}", backup.display());
+      }
+      return Ok(ok);
+    }
     let backup = dir.join(format!("KoboReader-{stamp}.sqlite"));
     session.device.write_positions(&writes, &backup)?;
     println!("\nWrote {} position(s) to the device.", writes.len());

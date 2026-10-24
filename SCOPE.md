@@ -122,15 +122,22 @@ Thin C++ layer, no sync logic of its own:
 
 - On leaving a book (`ReadingView::leavingReadingExperience`, after Nickel
   has saved the position): call the CLI to push, in the background.
-- On opening a book (`ReadingController::setVolume`): call the CLI to pull
-  (`pull --live --emit`, time-limited) and, if there is a position to take,
-  jump there with Nickel's own navigation (`ReadingView::goToBookmark`).
-  The book opens at once and the pull runs in the background, so opening
-  never waits for Wi-Fi or the server. The database is not written behind
-  Nickel's back
+- On opening a book (`ReadingController::setVolume`), before Nickel loads
+  it: call the CLI to pull (`pull --live --write --emit`, time-limited),
+  which writes a position to take into the book's row, and hand Nickel a
+  copy of the `Volume` with the same position. Nickel takes the chapter
+  from the `Volume` and the place in it from the row it loads again; both
+  have to agree. Changing only what Nickel holds in memory, or jumping with
+  `ReadingView::goToBookmark`, did not work on the Tolino
   ([docs/nickel-5.18-symbols.md](docs/nickel-5.18-symbols.md)).
 - While Nickel runs the CLI reads the database with `--live` (`mode=ro`,
-  so it sees what is still in `-wal`) and never writes it.
+  so it sees what is still in `-wal`). It writes only with `--write` and
+  `--content-id`, for the one book about to be opened, through SQLite's
+  normal locking, leaving Nickel's WAL alone, after a backup made with
+  SQLite's backup API (one a day, the two newest kept).
+- A book opened without a pull (no network, or Nickel did not open the
+  pulled chapter) is not pushed when it is left: its device position
+  would overwrite a newer one on the server.
 - Settings (server URL, user, device name) in `.adds/NickelInkSync/config.ini`,
   in the same format as the desktop configuration (see the README), passed
   to the CLI with `--config`; the CLI itself lives next to it.

@@ -345,12 +345,6 @@ fn live_pull_emits_the_position_and_never_writes() {
   // Only with --emit.
   let (_, out) = s.run(&base);
   assert!(!out.contains("NICKELINKSYNC_POSITION"), "{out}");
-  // Writing while Nickel runs is refused before any backup.
-  let (output, _) = s.run(&[&base[..], &["--write"]].concat());
-  assert!(!output.status.success());
-  let stderr = String::from_utf8_lossy(&output.stderr);
-  assert!(stderr.contains("in use by Nickel"), "{stderr}");
-  assert!(s.backups().is_empty());
   let stored: String = nickel
     .query_row(
       "SELECT ChapterIDBookmarked FROM content WHERE ContentID = ?1",
@@ -359,4 +353,72 @@ fn live_pull_emits_the_position_and_never_writes() {
     )
     .unwrap();
   assert_eq!(stored, "OEBPS/xhtml/xhtml-0-81.xhtml#point(/1/2/1/1:0)");
+}
+
+/// The plugin, just before Nickel opens the book: written into the
+/// database Nickel holds open, one backup a day.
+#[test]
+fn live_write_for_one_book_while_nickel_runs() {
+  let s = Setup::tolino("live-write");
+  let nickel = nickel_running(&s, "OEBPS/xhtml/xhtml-0-81.xhtml#point(/1/2/1/1:0)");
+  s.server
+    .store(&hash("book-a.epub"), AHEAD, 0.9, LAST_READ + 60);
+  // Never for all books at once.
+  let (output, _) = s.run(&["pull", "--live", "--write"]);
+  assert!(!output.status.success());
+  let stderr = String::from_utf8_lossy(&output.stderr);
+  assert!(stderr.contains("needs --content-id"), "{stderr}");
+  assert!(s.backups().is_empty());
+
+  let args = ["pull", "--live", "--content-id", BOOK, "--write", "--emit"];
+  let (output, out) = s.run(&args);
+  assert!(output.status.success(), "{out}");
+  assert!(
+    out.contains("Wrote 1 position(s) to the device database while Nickel runs."),
+    "{out}"
+  );
+  assert!(out.contains("NICKELINKSYNC_POSITION\t90\t"), "{out}");
+  // Nickel's own connection sees it.
+  let (position, percent): (String, i64) = nickel
+    .query_row(
+      "SELECT ChapterIDBookmarked, ___PercentRead FROM content WHERE ContentID = ?1",
+      [BOOK],
+      |r| Ok((r.get(0)?, r.get(1)?)),
+    )
+    .unwrap();
+  assert_eq!((position.as_str(), percent), (AHEAD_ON_DEVICE, 90));
+  // Its WAL files stay, and so does the WAL mode.
+  assert!(s.journals().iter().any(|j| j.ends_with("-wal")));
+  let backups = s.backups();
+  assert_eq!(backups.len(), 1, "{backups:?}");
+  let name = backups[0]
+    .file_name()
+    .unwrap()
+    .to_string_lossy()
+    .into_owned();
+  assert!(
+    name.starts_with("KoboReader-20") && name.len() == "KoboReader-20261024.sqlite".len(),
+    "{name}"
+  );
+  // The backup is a consistent database, from before the write.
+  let old: String = Connection::open(&backups[0])
+    .unwrap()
+    .query_row(
+      "SELECT ChapterIDBookmarked FROM content WHERE ContentID = ?1",
+      [BOOK],
+      |r| r.get(0),
+    )
+    .unwrap();
+  assert_eq!(old, "OEBPS/xhtml/xhtml-0-81.xhtml#point(/1/2/1/1:0)");
+
+  // Again the same day: in sync now, and no second backup.
+  s.server.store(
+    &hash("book-a.epub"),
+    AHEAD.replace("text()[1].0", "text()[1].3").as_str(),
+    0.91,
+    LAST_READ + 120,
+  );
+  let (output, out) = s.run(&args);
+  assert!(output.status.success(), "{out}");
+  assert_eq!(s.backups().len(), 1);
 }
