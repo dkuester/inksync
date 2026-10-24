@@ -74,8 +74,22 @@ dürfen jederzeit dazwischengeschoben werden.
 - [ ] **D2 Desktop-Client mit grafischer Oberfläche** · direkt nach D1.
   Baut auf derselben Bibliothek auf: Geräte und Bücher anzeigen, Zuordnung
   anlegen, Sync auslösen.
-  - [ ] **du:** Plattformen und Funktionsumfang festlegen.
-  - [ ] **ich:** Vorschlag für das GUI-Toolkit (Rust, MIT-kompatibel).
+  - [x] **du:** Plattformen festgelegt: zuerst **macOS**, dann **Windows**,
+    Linux optional, dann für möglichst viele Distributionen und Versionen.
+  - [ ] **du:** Funktionsumfang festlegen.
+  - [ ] **ich:** GUI mit **egui/eframe** (reines Rust, MIT/Apache, ohne
+    WebView, ein Code für alle drei Systeme).
+  - [ ] **ich:** macOS: `.app`-Bundle als `.dmg`, aus der CI (macOS-Runner);
+    ohne Apple Developer ID nicht notarisiert (erster Start per
+    Rechtsklick → „Öffnen“).
+  - [ ] **ich:** Windows: `.exe` aus der CI (Windows-Runner); ohne
+    Code-Signing warnt SmartScreen beim ersten Start.
+  - [ ] **ich (optional):** Linux als **AppImage**, gebaut auf einer alten
+    glibc-Basis (ältestes noch unterstütztes Ubuntu LTS), damit es auf
+    möglichst vielen Distributionen und Versionen läuft; keine Abhängigkeit
+    außer Grafik- und Fensterbibliotheken (X11/Wayland, OpenGL), die jede
+    Desktop-Installation hat. Ein statischer musl-Build geht für die GUI
+    nicht, weil die Grafiktreiber zur Laufzeit geladen werden.
 
 ## Kern
 

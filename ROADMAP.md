@@ -107,8 +107,12 @@ its own.
   devices.
 - **Desktop client with a graphical UI** (L): right after the CLI
   mapping, on the same library: devices and books, creating mappings,
-  starting a sync. Open: platforms and features, GUI toolkit (Rust,
-  MIT-compatible).
+  starting a sync. egui/eframe (pure Rust, MIT/Apache, no WebView), one
+  code base: macOS first (`.app` in a `.dmg`), then Windows (`.exe`),
+  Linux optional as an AppImage built on an old glibc baseline so it runs
+  on as many distributions and versions as possible. Builds are unsigned
+  at first (Gatekeeper and SmartScreen warn on first start). Open: the
+  feature set.
 
 - **Read-only device database layer** (S–M): reading the books and their
   positions is done (`status --device`); still to do: resolve
