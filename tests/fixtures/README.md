@@ -239,8 +239,31 @@ marker. Later the same with `book-r.kepub.epub` on the Kobo.
 Book P, Q and R were also sent to a Kindle Paperwhite 11 (firmware 5.19.2)
 through Send-to-Kindle, which turns them into KFX; the eight words of
 Book P and Book Q were highlighted, and in Book R two pages were read
-(2026-10-24). The Kindle files are not in the repository yet. Format and
-conclusions: [SCOPE.md](../../SCOPE.md#kindle-feasibility-check-outside-scope).
+(2026-10-24). Format and conclusions:
+[SCOPE.md](../../SCOPE.md#kindle-feasibility-check-outside-scope).
+
+[`kindle/`](kindle) holds the three books as the Kindle stores them, made by
+[`make_kindle_fixture.py`](../../tools/make_kindle_fixture.py) from a copy
+of `documents/Downloads/Items01/`: the KFX and, in its `.sdr` folder, the
+`.yjf` (reading position `lpr`, `fpr`, `page.history.record`) and the
+`.yjr` (highlights, font settings). Reviewed by the owner. Anonymized, each
+to a value of the same length so the files stay valid:
+
+| Value | In the fixture |
+|---|---|
+| `content_id` / `ASIN` (also in the file names) | `000…0001` (Book P), `…0002` (Q), `…0003` (R) |
+| `asset_id`, `book_id` | `CR!000…0001`, `000…01`, … |
+| `issue_date` | `2026-01-01` |
+| source OPF hash in a resource name | zeros |
+| device hash in the `.yjf`/`.yjr` file names | zeros |
+| KRDS timestamps | `2026-01-01T12:00:00Z`, one second apart, original order kept |
+
+Kept: the book text, the KFX structure and position maps, and every
+position and highlight unchanged. The `.mf` and `AssetDownloadMetadata.meta`
+files (signed download URLs) are never read. The script parses the KRDS
+files completely and stops on any key or string it does not know; it
+compares the rewritten KFX with the original and searches the output for
+every replaced value.
 
 Each highlight is a block `eid`, an offset in code points into the block's
 converted text, and the linear position `pid`. The `eid`s are the
@@ -321,6 +344,11 @@ tools/make_epub_fixture.py <book a, epub> tests/fixtures/epub/book-a.epub --name
 tools/make_epub_fixture.py <book c> tests/fixtures/epub/book-c.epub --name c \
   --keep OPS/bookwire/bookwire_advertisement5.xhtml \
   --position 'OPS/bookwire/bookwire_advertisement5.xhtml#point(/1/4/16/1:356)'
+```
+
+```sh
+tools/make_kindle_fixture.py <copy of documents/Downloads/Items01> tests/fixtures/kindle \
+  --book p --book q --book r
 ```
 
 The `-placeholder-books` fixtures are made the same way from the later

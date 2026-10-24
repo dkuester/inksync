@@ -269,9 +269,9 @@ beiden Geräte beim Testen nicht durcheinander.
     Abweichungen zu KOReader bei Leerraum am Absatzanfang, Inline-Elementen
     und Kommentaren, CDATA-Text geht bei der Umwandlung verloren. Kein Weg
     vom KFX zur Prüfsumme der EPUB.
-  - [ ] **du:** Gekürzte, anonymisierte Kindle-Daten (`.yjf`/`.yjr` von
-    Book P, Q und R, KFX-Text) durchsehen, bevor sie als Fixtures ins Repo
-    kommen.
+  - [x] **ich:** Anonymisierte Kindle-Fixtures für Book P, Q und R
+    (`tools/make_kindle_fixture.py`, `tests/fixtures/kindle/`).
+  - [x] **du:** Fixtures durchgesehen und freigegeben (2026-10-24).
   - [x] **du:** Festgelegt: Nutzer haben standardmäßig **keinen Jailbreak**.
     Der Funktionsumfang wird getrennt: ohne Jailbreak Desktop-CLI per USB
     (`.yjf`), mit Jailbreak zusätzlich `cc.db` und Sync ohne Kabel
