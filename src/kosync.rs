@@ -51,6 +51,20 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
+impl Error {
+  /// What went wrong in one word, for the plugin: `timeout`, `network` (no
+  /// connection, DNS, TLS), `auth` (401) or `server` (any other answer the
+  /// protocol does not expect).
+  pub fn kind(&self) -> &'static str {
+    match self {
+      Error::Http(ureq::Error::Timeout(_)) => "timeout",
+      Error::Http(_) => "network",
+      Error::Unauthorized => "auth",
+      Error::Status(..) | Error::Response(_) => "server",
+    }
+  }
+}
+
 impl From<ureq::Error> for Error {
   fn from(e: ureq::Error) -> Self {
     Error::Http(e)
@@ -216,6 +230,16 @@ fn parse_progress(value: &Value) -> Result<Option<Progress>, Error> {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn error_kinds_for_the_plugin() {
+    assert_eq!(Error::Unauthorized.kind(), "auth");
+    assert_eq!(Error::Status(500, String::new()).kind(), "server");
+    assert_eq!(Error::Response("x".into()).kind(), "server");
+    let timeout = ureq::Error::Timeout(ureq::Timeout::Global);
+    assert_eq!(Error::Http(timeout).kind(), "timeout");
+    assert_eq!(Error::Http(ureq::Error::HostNotFound).kind(), "network");
+  }
 
   #[test]
   fn key_is_md5_of_password() {
