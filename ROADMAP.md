@@ -48,6 +48,14 @@ L = a week or more, including verification.
 - [x] Position translation device → KOReader: OPF spine, kepub span and
       Adobe point (both firmware lines) to a full XPointer; all 48 probe
       highlights give exactly KOReader's XPointer; `status` shows it
+- [x] KOSync client (`users/auth`, progress GET/PUT, `rustls`, static ARM
+      build unchanged) and a configuration file; `push` (newest wins, never
+      overwrites a newer server position without `--force`), `status` with
+      the server position, `pull` as a dry run; tested against a local mock
+      server
+- [x] First real push against kosync.eu from the Tolino Shine Color: KOReader
+      opens the long probe book Book R on the page with the pushed position
+      (mid-chapter), so the forward translation holds in practice
 
 ## Quick wins
 
@@ -67,11 +75,13 @@ L = a week or more, including verification.
   and Shine Color databases in `tests/fixtures/db/`.
 - **Position translation, back to the device** (M): KOReader XPointer →
   Kobo span or Adobe point, for `pull`. The forward direction is done (see
-  "Recently completed"); the final check that a computed XPointer opens at
-  the right place in KOReader comes with the first `push`.
-- **KOSync client + `push`/`pull`/`status` CLI** (M): auth headers, progress
-  GET/PUT, newest-wins conflict rule, dry-run by default for anything that
-  writes. Verification needs a reachable koreader-sync-server.
+  "Recently completed"); a computed XPointer opens at the right place in
+  KOReader (checked with Book R).
+- **Ask which position wins, configurable** (S–M): when the device and the
+  server positions differ, optionally ask whether to keep the device or the
+  server position instead of applying "newest wins" silently. A setting such
+  as `confirm = never | backwards | always`; a terminal prompt on the
+  desktop, a dialog in the plugin later.
 - **USB write-back** (M): write a pulled position into the database only
   while the device is mounted, with a backup copy first. Blocker: confirm that
   Nickel picks the new position up after eject instead of overwriting it.

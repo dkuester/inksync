@@ -18,15 +18,12 @@ fn version_prints_crate_version() {
 }
 
 #[test]
-fn push_and_pull_are_not_implemented_yet() {
+fn push_and_pull_need_a_device() {
   for command in ["push", "pull"] {
     let output = run(&[command]);
     assert!(!output.status.success(), "`{command}` should fail");
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-      stderr.contains("not implemented yet"),
-      "`{command}` printed: {stderr}"
-    );
+    assert!(stderr.contains("--device"), "`{command}` printed: {stderr}");
   }
 }
 

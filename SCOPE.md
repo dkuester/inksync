@@ -111,7 +111,9 @@ Thin C++ layer, no sync logic of its own:
 - On opening a book: call the CLI to pull and, if a newer position exists,
   jump there through Nickel's own navigation instead of writing the database
   behind Nickel's back.
-- Settings (server URL, user, device name) in `.adds/NickelInkSync/config.ini`.
+- Settings (server URL, user, device name) in `.adds/NickelInkSync/config.ini`,
+  in the same format as the desktop configuration (see the README), passed
+  to the CLI with `--config`.
 - Packaging: `KoboRoot.tgz` for 4.x, `Kobo.tgz` for 5.x (hook in `imageformats/`).
 
 ## Verified findings

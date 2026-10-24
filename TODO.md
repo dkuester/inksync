@@ -72,12 +72,12 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     Fixture-EPUBs (`tests/fixtures/koreader/`). Sie enthalten
     `partial_md5_checksum` als Vergleichswert und die Positionen für K4.
   - [x] **ich:** Test gegen diese Werte (alle sieben EPUB-Fixtures, `tests/device.rs`).
-- [~] **K3 Position auf Kapitelebene**
+- [x] **K3 Position auf Kapitelebene**
   - [x] **ich:** `ChapterIDBookmarked` zerlegen: `href#kobo.N.M` (kepub),
     `href#point(...)` (EPUB) und `href` ohne Fragment (Kapitelanfang)
     (`position::Position::parse`).
-  - [~] **ich:** OPF-Spine lesen, `href` → `DocFragment[n]` (`epub::Epub`).
-    Offen: Prozentwert als Rückfallebene, kommt mit dem KOSync-Client (K5).
+  - [x] **ich:** OPF-Spine lesen, `href` → `DocFragment[n]` (`epub::Epub`).
+    Prozentwert für KOSync: `___PercentRead / 100`.
   - [x] **ich:** Tests mit den Fixtures aus G4: Heat 2 (Kobo und Tolino:
     `xhtml-0-81.xhtml` = Spine-Index 81 → `DocFragment[82]`; auf dem Tolino
     hat die Kapitelzeile `VolumeIndex` 80) und Titan 2 (Spine-Index 39, ohne
@@ -105,12 +105,32 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
   - [x] **ich:** Markierungen auslesen (`make_db_fixture.py --bookmarks`) und
     mit den erwarteten Offsets vergleichen (Ergebnis in
     `tests/fixtures/README.md`).
-  - [ ] **du:** Gegenprobe: Ein von uns berechneter XPointer öffnet in KOReader
-    die richtige Stelle. Am einfachsten mit dem ersten `push` (Etappe 3).
-- [ ] **K5 KOSync-Client**
-  - [ ] **ich:** Lokalen koreader-sync-server per Docker für Tests aufsetzen.
-  - [ ] **ich:** Anmeldung (`x-auth-user`, `x-auth-key` = MD5 des Passworts),
-    Fortschritt lesen (`GET`) und schreiben (`PUT`).
+  - [x] **du:** Gegenprobe: Ein von uns berechneter XPointer öffnet in KOReader
+    die richtige Stelle. Mit Book P (2026-10-24) nur das Kapitel prüfbar, weil
+    das Buch etwa eine Bildschirmseite lang ist. Mit Book R (2026-10-24):
+    Tolino-Seite beginnt in R1-156 bei Zeichen 253 („spät ruhig Garten.“),
+    `push` sendet `…/p[156]/text()[1].253`, KOReader öffnet die Seite, die in
+    R1-156 bei Zeichen 44 beginnt und bis R1-160 reicht, also mit der
+    Stelle darauf; beide 27 %. Die Seiten beginnen verschieden, weil
+    KOReader anders umbricht; die Position selbst stimmt.
+  - [x] **ich:** Langes Testbuch **Book R** (`tools/make_long_epub.py`): drei
+    Kapitel mit je 200 Absätzen, jeder Absatz mit Marke `R<Kapitel>-<Absatz>`
+    (Anleitung in `tests/fixtures/README.md`).
+  - [x] **du:** Book R auf den Tolino und in KOReader geladen, auf dem Tolino
+    mitten in Kapitel 1 geblättert, `push`, in KOReader Fortschritt geholt
+    (Ergebnis oben).
+- [x] **K5 KOSync-Client**
+  - [x] **ich:** Statt Docker ein kleiner Mock-Server in den Tests
+    (`tests/common/mod.rs`): läuft ohne Netz und ohne echtes Konto, auch in
+    der CI.
+  - [x] **ich:** Anmeldung (`x-auth-user`, `x-auth-key` = MD5 des Passworts),
+    Fortschritt lesen (`GET`) und schreiben (`PUT`) (`kosync::Client`).
+    HTTPS über `rustls` (ring, eingebaute Stammzertifikate), kein OpenSSL;
+    der statische ARM-Build läuft weiter. TLS gegen kosync.eu geprüft
+    (Anmeldung mit Dummy-Konto wird mit 401 abgelehnt).
+  - [x] **du + ich:** Erster echter `push` gegen kosync.eu mit deinem Konto
+    (Book P und Book R vom Tolino, 2026-10-24). Dabei gefunden: kosync.eu
+    antwortet ohne gespeicherte Position mit `[]` statt `{}`.
   - [x] **du:** Server: **kosync.eu** (Konto vorhanden). Das Dashboard dort
     zeigt den Lesestand je Hash und kann Testwerte wieder löschen. Das
     Passwort gibst du nur in die lokale Konfiguration ein, nie in den Chat
@@ -119,19 +139,36 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
 
 ## Programm
 
-- [ ] **P1 `status`, `push`, `pull`**
-  - [ ] **ich:** Konfigurationsdatei (Server, Benutzer, Gerätename); das
-    Passwort steht nicht in der Befehlszeile.
-  - [ ] **ich:** `status`: Position auf dem Gerät und auf dem Server gegenüberstellen.
-  - [ ] **ich:** `push`: Position zum Server.
-  - [ ] **ich:** `pull`: nur anzeigen, was sich ändern würde (Probelauf als
-    Standard). Die neueste Position gewinnt; rückwärts nur nach Rückfrage.
+- [~] **P1 `status`, `push`, `pull`**
+  - [x] **ich:** Konfigurationsdatei `~/.config/nickelinksync/config.ini`
+    (Server, Benutzer, Passwort oder MD5-Schlüssel, optional Gerätename und
+    -ID; Format im README). Das Passwort steht nicht in der Befehlszeile;
+    Warnung, wenn andere die Datei lesen können.
+  - [x] **ich:** `status`: Position auf dem Gerät und auf dem Server
+    gegenüberstellen, mit Hinweis, welche Seite neuer ist.
+  - [x] **ich:** `push`: Position zum Server. Eine neuere Server-Position
+    (Server-Zeitstempel nach `DateLastRead`) wird nur mit `--force`
+    überschrieben; `--dry-run`, `--book`.
+  - [x] **ich:** `pull`: nur anzeigen, was sich ändern würde (Probelauf).
+    Die neueste Position gewinnt; rückwärts nur nach Rückfrage (P3).
+  - [x] **du:** Passwort in die lokale Konfiguration eingetragen, `push` vom
+    Tolino Shine Color, Buch in KOReader mit Sync geöffnet: landet an der
+    richtigen Stelle (Book R, siehe K4).
   - [ ] **du:** Ein Durchlauf mit Kobo, Tolino und KOReader am selben Buch.
 - [ ] **P2 Rückschreiben per USB**
   - [ ] **ich:** `pull --write`: Sicherungskopie der Datenbank, dann
     `ChapterIDBookmarked` und `___PercentRead` setzen.
   - [ ] **du:** Gerät auswerfen und prüfen, ob Nickel die neue Position
     übernimmt oder überschreibt.
+
+- [ ] **P3 Rückfrage bei abweichender Position (einstellbar)**
+  - [ ] **ich:** Wenn sich Position auf dem Gerät und auf dem Server
+    unterscheiden, optional fragen, welche gelten soll (Gerät oder Server),
+    statt still „die neueste gewinnt“ anzuwenden. In der Konfiguration
+    einstellbar, z. B. `confirm = never | backwards | always` (nie, nur
+    wenn es rückwärts ginge, immer). Gilt für `push` und `pull`; auf dem
+    Rechner als Frage im Terminal, später im Plugin als Dialog (O3/O4).
+  - [ ] **du:** Standardwert festlegen.
 
 ## Plugin
 
