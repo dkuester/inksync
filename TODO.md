@@ -194,8 +194,10 @@ beiden Geräte beim Testen nicht durcheinander.
 - [x] **P3 Rückfrage bei abweichender Position (einstellbar)** · PR #18
   - [x] **ich:** `confirm = never | backwards | always` in der Konfiguration
     (`sync::decide`). „Rückwärts“: Die Position, die überschrieben würde,
-    liegt weiter hinten im Buch (Spine-Index, dann Prozent), nicht nach
-    Zeitstempel, weil Nickel `DateLastRead` schon beim Öffnen setzt. Gilt
+    liegt weiter hinten im Buch (Spine-Index, im selben Kapitel die Stelle
+    im Text, Prozent nur als Rückfall; seit P2, weil Nickel und KOReader
+    den Prozentwert verschieden berechnen), nicht nach Zeitstempel, weil
+    Nickel `DateLastRead` schon beim Öffnen setzt. Gilt
     für `push` und `pull`; im Terminal Frage „[d]evice or [s]erver?“, ohne
     Terminal wird nichts überschrieben und das Buch gemeldet; `--force`
     (jetzt auch bei `pull`) überschreibt ohne Frage. Später im Plugin als

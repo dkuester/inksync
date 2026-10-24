@@ -8,8 +8,8 @@
 //! finished although the reader is elsewhere.
 //!
 //! Which side is newer comes from the timestamps; whether a move goes
-//! backwards comes from the position in the book (spine index, then
-//! percentage), never from the timestamps. Nickel sets `DateLastRead` as
+//! backwards comes from the position in the book (spine index, then the
+//! place in the chapter, then percentage), never from the timestamps. Nickel sets `DateLastRead` as
 //! soon as a book is opened, so after merely opening a book on the device
 //! the device looks newer than a position read further on elsewhere.
 
@@ -148,11 +148,17 @@ pub fn decide(
 }
 
 /// Where position `a` lies in the book relative to `b`: by spine index
-/// (`DocFragment[n]`) where both XPointers have one, then by percentage.
+/// (`DocFragment[n]`) where both XPointers have one; in the same chapter by
+/// the place in the text where the two paths can be compared
+/// ([`order_in_chapter`]); else by percentage. Each reader computes its
+/// percentage differently, so it only decides when nothing else does.
 pub fn order_in_book(a: &str, a_percentage: f64, b: &str, b_percentage: f64) -> Ordering {
-  if let (Some(a), Some(b)) = (doc_fragment(a), doc_fragment(b)) {
-    if a != b {
-      return a.cmp(&b);
+  if let (Some(fa), Some(fb)) = (doc_fragment(a), doc_fragment(b)) {
+    if fa != fb {
+      return fa.cmp(&fb);
+    }
+    if let Some(order) = order_in_chapter(a, b) {
+      return order;
     }
   }
   // Nickel stores whole percents; a hair's difference is no difference.
@@ -163,6 +169,44 @@ pub fn order_in_book(a: &str, a_percentage: f64, b: &str, b_percentage: f64) -> 
   } else {
     Ordering::Greater
   }
+}
+
+/// Document order of two XPointers in the same chapter, or `None` where
+/// the paths alone do not tell: KOReader counts elements by tag name, so
+/// `p[3]` and `div[1]` under the same parent, or a node and one inside it,
+/// cannot be ordered without the chapter itself.
+fn order_in_chapter(a: &str, b: &str) -> Option<Ordering> {
+  let (a, a_offset) = steps(a)?;
+  let (b, b_offset) = steps(b)?;
+  for (x, y) in a.iter().zip(&b) {
+    if x.0 != y.0 {
+      return None;
+    }
+    if x.1 != y.1 {
+      return Some(x.1.cmp(&y.1));
+    }
+  }
+  (a.len() == b.len()).then(|| a_offset.cmp(&b_offset))
+}
+
+/// The steps of an XPointer as (name, 1-based index), and the offset after
+/// the last `.`, 0 if there is none: `/body[1]/p[3]/text()[1].12`.
+fn steps(xpointer: &str) -> Option<(Vec<(&str, usize)>, usize)> {
+  let (path, offset) = match xpointer.rsplit_once('.') {
+    Some((path, n)) if !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()) => {
+      (path, n.parse().ok()?)
+    }
+    _ => (xpointer, 0),
+  };
+  let steps = path
+    .strip_prefix('/')?
+    .split('/')
+    .map(|step| match step.split_once('[') {
+      Some((name, n)) => Some((name, n.strip_suffix(']')?.parse().ok()?)),
+      None => Some((step, 1)),
+    })
+    .collect::<Option<_>>()?;
+  Some((steps, offset))
 }
 
 /// `n` of `/body[1]/DocFragment[n]/…`.
@@ -333,12 +377,17 @@ mod tests {
   }
 
   #[test]
-  fn order_by_spine_then_percentage() {
+  fn order_by_spine_first() {
     let x = |n: usize| format!("/body[1]/DocFragment[{n}]/body[1]/p[3]/text()[1].5");
     assert_eq!(order_in_book(&x(2), 0.9, &x(10), 0.1), Ordering::Less);
     assert_eq!(order_in_book(&x(10), 0.1, &x(2), 0.9), Ordering::Greater);
-    assert_eq!(order_in_book(&x(5), 0.3, &x(5), 0.4), Ordering::Less);
-    assert_eq!(order_in_book(&x(5), 0.4, &x(5), 0.4), Ordering::Equal);
+    // The same place: equal, whatever the percentages say.
+    assert_eq!(order_in_book(&x(5), 0.3, &x(5), 0.4), Ordering::Equal);
+    // Only the chapter known: the percentage decides.
+    assert_eq!(
+      order_in_book("/body[1]/DocFragment[5]", 0.3, &x(5), 0.4),
+      Ordering::Less
+    );
     // Without a DocFragment only the percentage counts.
     assert_eq!(
       order_in_book("#_doc_fragment", 0.5, &x(2), 0.2),
@@ -410,13 +459,54 @@ mod tests {
     // The other side is newer: nothing to ask, it is kept.
     assert_eq!(decide(Push, &d, &sp(15, 1001), c), Keep);
     assert_eq!(decide(Pull, &d, &sp(5, 999), c), Keep);
-    // Same chapter: the percentage decides.
+    // Same chapter: the place in the text decides, not the percentage.
     let mut same = sp(10, 999);
     same.progress.push('7');
-    same.percentage = 0.6;
-    assert!(matches!(decide(Push, &d, &same, c), Ask { .. }));
-    same.percentage = 0.4;
-    assert_eq!(decide(Push, &d, &same, c), Apply);
+    for percentage in [0.4, 0.6] {
+      same.percentage = percentage;
+      assert!(matches!(decide(Push, &d, &same, c), Ask { .. }));
+    }
+  }
+
+  #[test]
+  fn order_in_a_chapter_by_place() {
+    let at = |path: &str| format!("/body[1]/DocFragment[3]/body[1]/{path}");
+    // Book R on the Tolino: Nickel's page start in R2-133 at 57 % lies
+    // before KOReader's place in R2-134 at 56 %.
+    assert_eq!(
+      order_in_book(
+        &at("p[133]/text()[1].43"),
+        0.57,
+        &at("p[134]/text()[1].256"),
+        0.56
+      ),
+      Ordering::Less
+    );
+    assert_eq!(
+      order_in_book(&at("p[5]/text()[1].9"), 0.1, &at("p[5]/text()[1].3"), 0.9),
+      Ordering::Greater
+    );
+    assert_eq!(
+      order_in_book(&at("p[5]/text()[2].0"), 0.9, &at("p[5]/text()[1].30"), 0.1),
+      Ordering::Greater
+    );
+    assert_eq!(
+      order_in_book(&at("p[5]/text()[1].3"), 0.1, &at("p[5]/text()[1].3"), 0.9),
+      Ordering::Equal
+    );
+    // Same depth but different tags, or one inside the other: percentage.
+    assert_eq!(
+      order_in_book(&at("p[9]/text()[1].0"), 0.2, &at("div[1]/text()[1].0"), 0.3),
+      Ordering::Less
+    );
+    assert_eq!(
+      order_in_book(&at("p[9]"), 0.5, &at("p[9]/em[1]/text()[1].4"), 0.4),
+      Ordering::Greater
+    );
+    assert_eq!(
+      steps("/body/p[2]/text().5"),
+      Some((vec![("body", 1), ("p", 2), ("text()", 1)], 5))
+    );
   }
 
   #[test]

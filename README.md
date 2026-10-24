@@ -89,8 +89,9 @@ password = your password
   | `backwards` (default) | when the position that would be overwritten lies further on in the book than the new one |
   | `always` | whenever the two positions differ |
 
-  "Further on" is decided by the place in the book (chapter, then
-  percentage), not by time: Nickel marks a book as read the moment you open
+  "Further on" is decided by the place in the book (chapter, then the
+  place in the chapter's text, the percentage only if that does not
+  decide), not by time: Nickel marks a book as read the moment you open
   it, so a book you only opened on the e-reader looks newer than the page
   you reached in KOReader. In a terminal you answer `d` (device) or `s`
   (server), Enter skips the book. Without a terminal nothing is overwritten

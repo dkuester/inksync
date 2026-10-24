@@ -95,8 +95,12 @@ for the device. It owns all logic:
   configuration: `never`, `backwards` (default: ask when the position that
   would be overwritten lies further on in the book than the new one) or
   `always` (ask whenever the positions differ). "Backwards" compares the
-  place in the book, spine index (`DocFragment[n]`) first, then the
-  percentage, never the timestamps: Nickel sets `DateLastRead` when a book
+  place in the book, never the timestamps: spine index (`DocFragment[n]`)
+  first, then, in the same chapter, the place in the text (paragraph, then
+  offset, where the two XPointer paths can be compared), and the
+  percentage only where neither decides. Each reader computes its own
+  percentage: on the Tolino, Nickel's page start in R2-133 said 57 % while
+  KOReader's place further on in R2-134 said 56 %. Not by time: Nickel sets `DateLastRead` when a book
   is merely opened, so newest-wins alone would let a device that was only
   opened overwrite a position read further on in KOReader. In a terminal
   the CLI asks "device or server?"; without one (the plugin, later) it

@@ -70,8 +70,9 @@ statt die neuere Position gewinnen zu lassen:
 | `backwards` (Standard) | wenn die Position, die überschrieben würde, weiter hinten im Buch liegt als die neue |
 | `always` | immer, wenn sich die beiden Positionen unterscheiden |
 
-„Weiter hinten“ entscheidet die Stelle im Buch (Kapitel, dann Prozent),
-nicht die Uhrzeit: Nickel vermerkt ein Buch schon beim Öffnen als gelesen,
+„Weiter hinten“ entscheidet die Stelle im Buch (Kapitel, dann die Stelle im
+Text des Kapitels, Prozent nur, wenn das nicht entscheidet), nicht die
+Uhrzeit: Nickel vermerkt ein Buch schon beim Öffnen als gelesen,
 ein auf dem E-Reader nur geöffnetes Buch wirkt also neuer als die Seite, die
 du in KOReader erreicht hast. Im Terminal antwortest du mit `d` (Gerät) oder
 `s` (Server), Enter überspringt das Buch. Ohne Terminal wird nichts
