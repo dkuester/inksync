@@ -15,3 +15,8 @@ password = your password
 # always. The plugin cannot ask yet: a position that needs an answer is left
 # alone and noted in NickelInkSync.log.
 # confirm = backwards
+
+# Messages on the screen after opening and leaving a book: all (default,
+# also "up to date"), errors (only what went wrong or was left undone),
+# none. German only for now.
+# notify = all

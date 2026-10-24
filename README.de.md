@@ -60,7 +60,8 @@ es sie gibt. Standardort: `~/.config/nickelinksync/config.ini` (oder
 `$XDG_CONFIG_HOME/nickelinksync/config.ini`, oder der Pfad in
 `$NICKELINKSYNC_CONFIG`). Das Format steht im [englischen README](README.md#configuration):
 `server`, `user`, `password` (oder `key` = MD5 des Passworts), optional
-`device`, `device_id` und `confirm`.
+`device`, `device_id`, `confirm` und `notify` (nur für das Tolino-Plugin,
+siehe unten).
 
 `confirm` legt fest, wann `push` und `pull` „Gerät oder Server?“ fragen,
 statt die neuere Position gewinnen zu lassen:
@@ -115,6 +116,18 @@ das Buch unverändert, und beim Verlassen wird dann nichts gesendet, damit eine
 ältere Tolino-Position nie eine neuere auf dem Server überschreibt. Beim
 Verlassen wartet es nie: Der Push folgt, sobald das WLAN da ist, nach 15
 Sekunden mit dem WLAN-Dialog des Tolino.
+
+Jedes Ergebnis zeigt das Plugin als kurze Meldung unten auf dem Bildschirm
+(vorerst auf Deutsch), etwa „Fortschritt vom Server übernommen“ mit Prozent
+und dem Gerät, von dem die Position kam, oder „Fortschritt konnte nicht vom
+Server gelesen werden“ mit dem Grund (keine Verbindung, Zeitüberschreitung,
+Anmeldung abgelehnt). `notify` in `config.ini` legt fest, welche:
+
+| Wert | Zeigt |
+|---|---|
+| `all` (Standard) | jedes Ergebnis, auch „Fortschritt ist aktuell“, wenn nichts zu übernehmen oder zu senden war |
+| `errors` | nur, was schiefging oder unterblieb: Server nicht erreicht, Position nicht übernommen, nicht gesendet |
+| `none` | nichts; im Log steht weiterhin alles |
 
 **Deinstallieren:** eine leere Datei `.adds/NickelInkSync/uninstall`
 anlegen, auswerfen und den Tolino aus- und wieder einschalten (die Datei

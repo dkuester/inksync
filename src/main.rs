@@ -42,6 +42,12 @@ enum Command {
     /// Only show what would be sent
     #[arg(long)]
     dry_run: bool,
+    /// For the plugin: print the outcome as lines `NICKELINKSYNC_SENT<tab>
+    /// percent`, `NICKELINKSYNC_IN_SYNC`, `NICKELINKSYNC_NOT_SENT<tab>reason`,
+    /// `NICKELINKSYNC_UNANSWERED<tab>n` and `NICKELINKSYNC_ERROR<tab>kind<tab>
+    /// message`
+    #[arg(long)]
+    emit: bool,
   },
   /// Show what a newer position on the KOSync server would change, and with
   /// --write write it to the device
@@ -56,8 +62,11 @@ enum Command {
     #[arg(long)]
     write: bool,
     /// For the plugin: print each position to take as one line
-    /// `NICKELINKSYNC_POSITION<tab>percent<tab>ChapterIDBookmarked`, and
-    /// `NICKELINKSYNC_UNANSWERED<tab>n` if positions need an answer
+    /// `NICKELINKSYNC_POSITION<tab>percent<tab>ChapterIDBookmarked` followed
+    /// by `NICKELINKSYNC_FROM<tab>device`, `NICKELINKSYNC_UNANSWERED<tab>n`
+    /// if positions need an answer, `NICKELINKSYNC_NOT_TAKEN<tab>reason<tab>
+    /// message` for one that cannot be taken, and `NICKELINKSYNC_ERROR<tab>
+    /// kind<tab>message` if the server could not be asked
     #[arg(long)]
     emit: bool,
   },
@@ -89,27 +98,49 @@ struct Target {
 
 fn main() -> ExitCode {
   let cli = Cli::parse();
-  let result = match cli.command {
-    Command::Status(target) => status(&target),
+  let (result, emit) = match cli.command {
+    Command::Status(target) => (status(&target), false),
     Command::Push {
       target,
       force,
       dry_run,
-    } => push(&target, force, dry_run),
+      emit,
+    } => (push(&target, force, dry_run, emit), emit),
     Command::Pull {
       target,
       force,
       write,
       emit,
-    } => pull(&target, force, write, emit),
+    } => (pull(&target, force, write, emit), emit),
   };
   match result {
     Ok(true) => ExitCode::SUCCESS,
     Ok(false) => ExitCode::FAILURE,
     Err(e) => {
+      if emit {
+        emit_line("ERROR", &["other", &e.to_string()]);
+      }
       eprintln!("nickelinksync: {e}");
       ExitCode::FAILURE
     }
+  }
+}
+
+/// For the plugin: one line `NICKELINKSYNC_<name>` with tab-separated
+/// fields; tabs and line breaks inside a field become spaces.
+fn emit_line(name: &str, fields: &[&str]) {
+  let mut line = format!("NICKELINKSYNC_{name}");
+  for field in fields {
+    line.push('\t');
+    line.extend(field.chars().map(|c| if c.is_control() { ' ' } else { c }));
+  }
+  println!("{line}");
+}
+
+/// For the plugin: the server could not be asked.
+fn emit_error(emit: bool, e: &kosync::Error) {
+  if emit {
+    emit_line("ERROR", &[e.kind(), &e.to_string()]);
   }
 }
 
@@ -449,14 +480,15 @@ fn unanswered_note(unanswered: usize) {
   }
 }
 
-fn push(target: &Target, force: bool, dry_run: bool) -> Result<bool> {
+fn push(target: &Target, force: bool, dry_run: bool, emit: bool) -> Result<bool> {
   let session = Session::open(target)?;
   let server = Server::require(target)?;
   let (device, device_id) = server.config.identity(&session.model);
-  server
-    .client
-    .authorize()
-    .map_err(|e| format!("{}: {e}", server.config.server))?;
+  if let Err(e) = server.client.authorize() {
+    emit_error(emit, &e);
+    eprintln!("nickelinksync: {}: {e}", server.config.server);
+    return Ok(false);
+  }
   println!(
     "Server {} as {}, device \"{device}\"",
     server.config.server, server.config.user
@@ -470,6 +502,9 @@ fn push(target: &Target, force: bool, dry_run: bool) -> Result<bool> {
       (Ok(hash), Ok(local)) => (hash, local),
       (Err(e), _) | (_, Err(e)) => {
         println!("  skipped   {e}");
+        if emit {
+          emit_line("NOT_SENT", &["skipped", &e]);
+        }
         continue;
       }
     };
@@ -478,6 +513,7 @@ fn push(target: &Target, force: bool, dry_run: bool) -> Result<bool> {
       Ok(remote) => remote,
       Err(e) => {
         println!("  failed    {e}");
+        emit_error(emit, &e);
         ok = false;
         continue;
       }
@@ -486,6 +522,9 @@ fn push(target: &Target, force: bool, dry_run: bool) -> Result<bool> {
       match decide(Direction::Push, &local, remote, confirm_setting) {
         Decision::InSync => {
           println!("  in sync   {}", describe(remote));
+          if emit {
+            emit_line("IN_SYNC", &[]);
+          }
           continue;
         }
         Decision::Apply => {}
@@ -493,6 +532,9 @@ fn push(target: &Target, force: bool, dry_run: bool) -> Result<bool> {
         Decision::Keep => {
           println!("  skipped   server is newer: {}", describe(remote));
           println!("            --force sends the device position anyway");
+          if emit {
+            emit_line("NOT_SENT", &["server-newer", &describe(remote)]);
+          }
           continue;
         }
         Decision::Ask { backwards, .. } => {
@@ -528,10 +570,19 @@ fn push(target: &Target, force: bool, dry_run: bool) -> Result<bool> {
       continue;
     }
     match server.client.update(&update) {
-      Ok(Some(t)) => println!("  sent      {what} at {}", format_timestamp(t)),
-      Ok(None) => println!("  sent      {what}"),
+      Ok(t) => {
+        match t {
+          Some(t) => println!("  sent      {what} at {}", format_timestamp(t)),
+          None => println!("  sent      {what}"),
+        }
+        if emit {
+          let percent = (update.percentage * 100.0).round().clamp(0.0, 100.0);
+          emit_line("SENT", &[&percent.to_string()]);
+        }
+      }
       Err(e) => {
         println!("  failed    {e}");
+        emit_error(emit, &e);
         ok = false;
         if matches!(e, kosync::Error::Unauthorized) {
           break;
@@ -540,6 +591,9 @@ fn push(target: &Target, force: bool, dry_run: bool) -> Result<bool> {
     }
   }
   unanswered_note(unanswered);
+  if emit && unanswered > 0 {
+    emit_line("UNANSWERED", &[&unanswered.to_string()]);
+  }
   if dry_run {
     println!("\nDry run: nothing was sent.");
   }
@@ -560,6 +614,9 @@ fn pull(target: &Target, force: bool, write: bool, emit: bool) -> Result<bool> {
       Ok(hash) => hash,
       Err(e) => {
         println!("  skipped   {e}");
+        if emit {
+          emit_line("NOT_TAKEN", &["skipped", &e]);
+        }
         continue;
       }
     };
@@ -571,6 +628,7 @@ fn pull(target: &Target, force: bool, write: bool, emit: bool) -> Result<bool> {
       }
       Err(e) => {
         println!("  failed    {e}");
+        emit_error(emit, &e);
         ok = false;
         if matches!(e, kosync::Error::Unauthorized) {
           break;
@@ -622,6 +680,9 @@ fn pull(target: &Target, force: bool, write: bool, emit: bool) -> Result<bool> {
       Ok(t) => t,
       Err(e) => {
         println!("  skipped   not translated: {e}");
+        if emit {
+          emit_line("NOT_TAKEN", &["not-translated", &e]);
+        }
         continue;
       }
     };
@@ -640,7 +701,9 @@ fn pull(target: &Target, force: bool, write: bool, emit: bool) -> Result<bool> {
       .map(|_| iso_timestamp(remote.timestamp - 1));
     let percent = (remote.percentage * 100.0).round().clamp(0.0, 100.0) as i64;
     if emit {
-      println!("NICKELINKSYNC_POSITION\t{percent}\t{}", translated.position);
+      let position = translated.position.to_string();
+      emit_line("POSITION", &[&percent.to_string(), &position]);
+      emit_line("FROM", &[&remote.device]);
     }
     writes.push(Write {
       content_id: book.content_id.clone(),
@@ -652,7 +715,7 @@ fn pull(target: &Target, force: bool, write: bool, emit: bool) -> Result<bool> {
   unanswered_note(unanswered);
   if emit && unanswered > 0 {
     // For the plugin: a position needs an answer it cannot give.
-    println!("NICKELINKSYNC_UNANSWERED\t{unanswered}");
+    emit_line("UNANSWERED", &[&unanswered.to_string()]);
   }
   if !write && target.live {
     println!("\nNothing was written to the device database (Nickel is running).");

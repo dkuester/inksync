@@ -72,6 +72,9 @@ password = your password
 
 # When to ask before overwriting a position: never, backwards (default), always
 # confirm = backwards
+
+# Messages of the Tolino plugin: all (default), errors, none
+# notify = all
 ```
 
 - The password is only read from this file, never from the command line.
@@ -97,6 +100,8 @@ password = your password
   you reached in KOReader. In a terminal you answer `d` (device) or `s`
   (server), Enter skips the book. Without a terminal nothing is overwritten
   and the book is reported. `--force` overwrites without asking.
+- `notify` is only read by the Tolino plugin (see below): which messages
+  it shows on the screen.
 - Lines starting with `#` or `;` are comments; unknown keys are an error.
 
 ## Plugin for the Tolino (experimental)
@@ -131,6 +136,18 @@ keeps one backup of the database a day in `.adds/NickelInkSync/backups/`
 then sends nothing, so an older Tolino position never overwrites a newer
 one on the server. Leaving a book never waits: the push follows when
 Wi-Fi is up, after 15 seconds with the Tolino's Wi-Fi dialog.
+
+Each outcome shows as a short message at the bottom of the screen (in
+German for now), for example "Fortschritt vom Server übernommen" with the
+percentage and the device that sent it, or "Fortschritt konnte nicht vom
+Server gelesen werden" with the reason (no connection, timeout, login
+refused). `notify` in `config.ini` picks which:
+
+| Value | Shows |
+|---|---|
+| `all` (default) | every outcome, also "Fortschritt ist aktuell" when there was nothing to take or send |
+| `errors` | only what went wrong or was left undone: server not reached, position not taken, position not sent |
+| `none` | nothing; the log still has everything |
 
 **Uninstall:** create an empty file `.adds/NickelInkSync/uninstall`, eject
 and power the Tolino off and on again (the file is only checked when the

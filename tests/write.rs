@@ -342,9 +342,16 @@ fn live_pull_emits_the_position_and_never_writes() {
     out.contains("Nothing was written to the device database (Nickel is running)."),
     "{out}"
   );
+  // Who stored it, for the plugin's message.
+  assert!(
+    out.contains(&format!(
+      "NICKELINKSYNC_POSITION\t90\t{AHEAD_ON_DEVICE}\nNICKELINKSYNC_FROM\tKOReader\n"
+    )),
+    "{out}"
+  );
   // Only with --emit.
   let (_, out) = s.run(&base);
-  assert!(!out.contains("NICKELINKSYNC_POSITION"), "{out}");
+  assert!(!out.contains("NICKELINKSYNC_"), "{out}");
   let stored: String = nickel
     .query_row(
       "SELECT ChapterIDBookmarked FROM content WHERE ContentID = ?1",
@@ -440,4 +447,114 @@ fn live_pull_tells_the_plugin_about_an_unanswered_question() {
   assert!(out.contains("\nNICKELINKSYNC_UNANSWERED\t1\n"), "{out}");
   assert!(!out.contains("NICKELINKSYNC_POSITION"), "{out}");
   assert!(s.backups().is_empty());
+}
+
+/// The machine line the plugin turns into its message, and the exit code it
+/// checks first.
+fn emitted(s: &Setup, args: &[&str]) -> (bool, String) {
+  let (output, out) = s.run(args);
+  (output.status.success(), out)
+}
+
+#[test]
+fn live_pull_tells_the_plugin_why_the_server_was_not_asked() {
+  let s = Setup::tolino("live-errors");
+  let args = ["pull", "--live", "--content-id", BOOK, "--write", "--emit"];
+  // Wrong password.
+  s.server.config(&s.root, "wrong");
+  let (ok, out) = emitted(&s, &args);
+  assert!(!ok);
+  assert!(
+    out.contains("\nNICKELINKSYNC_ERROR\tauth\tunauthorized: check user and password\n"),
+    "{out}"
+  );
+  // Nobody listening.
+  let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+  let url = format!("http://{}", closed.local_addr().unwrap());
+  drop(closed);
+  fs::write(
+    &s.config,
+    format!("server = {url}\nuser = alice\npassword = secret\n"),
+  )
+  .unwrap();
+  let (ok, out) = emitted(&s, &args);
+  assert!(!ok);
+  assert!(out.contains("\nNICKELINKSYNC_ERROR\tnetwork\t"), "{out}");
+  // No usable configuration: one line from the CLI itself.
+  fs::write(
+    &s.config,
+    "server = x\nuser = alice\npassword = secret\nnotify = loud\n",
+  )
+  .unwrap();
+  let (ok, out) = emitted(&s, &args);
+  assert!(!ok);
+  assert!(
+    out.contains("NICKELINKSYNC_ERROR\tother\t") && out.contains("`notify` must be"),
+    "{out}"
+  );
+  assert!(s.backups().is_empty());
+}
+
+#[test]
+fn live_pull_tells_the_plugin_about_a_position_it_cannot_take() {
+  let s = Setup::tolino("live-not-taken");
+  s.server.store(
+    &hash("book-a.epub"),
+    "/body[1]/DocFragment[999]/body[1]/p[1]/text()[1].0",
+    0.9,
+    LAST_READ + 60,
+  );
+  let args = ["pull", "--live", "--content-id", BOOK, "--write", "--emit"];
+  let (ok, out) = emitted(&s, &args);
+  assert!(ok, "{out}");
+  assert!(
+    out.contains("\nNICKELINKSYNC_NOT_TAKEN\tnot-translated\t"),
+    "{out}"
+  );
+  assert!(!out.contains("NICKELINKSYNC_POSITION"), "{out}");
+}
+
+#[test]
+fn live_push_tells_the_plugin_what_happened() {
+  let s = Setup::tolino("live-push");
+  let _nickel = nickel_running(&s, "OEBPS/xhtml/xhtml-0-81.xhtml#point(/1/2/1/1:0)");
+  let args = ["push", "--live", "--content-id", BOOK, "--emit"];
+  // The server has nothing: sent.
+  let (ok, out) = emitted(&s, &args);
+  assert!(ok, "{out}");
+  let sent: Vec<&str> = out
+    .lines()
+    .filter(|l| l.starts_with("NICKELINKSYNC_"))
+    .collect();
+  assert_eq!(sent.len(), 1, "{out}");
+  assert!(sent[0].starts_with("NICKELINKSYNC_SENT\t"), "{out}");
+  assert!(
+    sent[0]["NICKELINKSYNC_SENT\t".len()..]
+      .parse::<u32>()
+      .is_ok(),
+    "{out}"
+  );
+  assert_eq!(s.server.puts().len(), 1);
+  // Again: nothing new.
+  let (ok, out) = emitted(&s, &args);
+  assert!(ok, "{out}");
+  assert!(out.contains("\nNICKELINKSYNC_IN_SYNC\n"), "{out}");
+  // KOReader has read on since: kept, and the plugin says why.
+  s.server
+    .store(&hash("book-a.epub"), AHEAD, 0.9, 2_000_000_000);
+  let (ok, out) = emitted(&s, &args);
+  assert!(ok, "{out}");
+  assert!(
+    out.contains("\nNICKELINKSYNC_NOT_SENT\tserver-newer\t"),
+    "{out}"
+  );
+  assert_eq!(s.server.puts().len(), 1);
+  // Wrong password.
+  s.server.config(&s.root, "wrong");
+  let (ok, out) = emitted(&s, &args);
+  assert!(!ok);
+  assert!(out.contains("NICKELINKSYNC_ERROR\tauth\t"), "{out}");
+  // Only with --emit.
+  let (_, out) = s.run(&["push", "--live", "--content-id", BOOK]);
+  assert!(!out.contains("NICKELINKSYNC_"), "{out}");
 }

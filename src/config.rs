@@ -3,9 +3,11 @@
 //!
 //! One `key = value` per line; empty lines and lines starting with `#` or
 //! `;` are ignored. Keys: `server`, `user`, `password` or `key` (the MD5 of
-//! the password), and optionally `device`, `device_id` and `confirm`
-//! (`never`, `backwards` or `always`, default `backwards`). The password is
-//! only ever read from this file, never from the command line.
+//! the password), and optionally `device`, `device_id`, `confirm`
+//! (`never`, `backwards` or `always`, default `backwards`) and `notify`
+//! (`all`, `errors` or `none`, default `all`; only the device plugin uses
+//! it, for its messages on the screen). The password is only ever read from
+//! this file, never from the command line.
 
 use std::fmt;
 use std::io;
@@ -51,6 +53,32 @@ pub struct Config {
   pub device_id: Option<String>,
   /// When to ask before overwriting a position.
   pub confirm: Confirm,
+  /// Which messages the device plugin shows; the CLI only checks it.
+  pub notify: Notify,
+}
+
+/// `notify`: which messages the device plugin shows on the screen.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Notify {
+  /// Every result of a pull or push, also "up to date".
+  #[default]
+  All,
+  /// Only what went wrong or was left undone.
+  Errors,
+  None,
+}
+
+impl std::str::FromStr for Notify {
+  type Err = ();
+
+  fn from_str(s: &str) -> Result<Self, ()> {
+    match s {
+      "all" => Ok(Notify::All),
+      "errors" => Ok(Notify::Errors),
+      "none" => Ok(Notify::None),
+      _ => Err(()),
+    }
+  }
 }
 
 impl Config {
@@ -92,8 +120,8 @@ impl Config {
   /// `path` is only used in error messages.
   pub fn parse(path: &Path, text: &str) -> Result<Self, Error> {
     let syntax = |line, e: String| Error::Syntax(path.to_path_buf(), line, e);
-    let (mut server, mut user, mut password, mut key, mut device, mut device_id, mut confirm) =
-      (None, None, None, None, None, None, None);
+    let (mut server, mut user, mut password, mut key) = (None, None, None, None);
+    let (mut device, mut device_id, mut confirm, mut notify) = (None, None, None, None);
     for (n, line) in text.lines().enumerate() {
       let line = line.trim();
       if line.is_empty() || line.starts_with('#') || line.starts_with(';') {
@@ -111,6 +139,7 @@ impl Config {
         "device" => &mut device,
         "device_id" => &mut device_id,
         "confirm" => &mut confirm,
+        "notify" => &mut notify,
         other => return Err(syntax(n + 1, format!("unknown key `{other}`"))),
       };
       *slot = value;
@@ -142,6 +171,15 @@ impl Config {
         )
       })?,
     };
+    let notify = match notify {
+      None => Notify::default(),
+      Some(value) => value.parse().map_err(|()| {
+        Error::Invalid(
+          path.to_path_buf(),
+          "`notify` must be `all`, `errors` or `none`",
+        )
+      })?,
+    };
     Ok(Config {
       server: server.ok_or_else(|| missing("server"))?,
       user: user.ok_or_else(|| missing("user"))?,
@@ -149,6 +187,7 @@ impl Config {
       device,
       device_id,
       confirm,
+      notify,
     })
   }
 
@@ -223,6 +262,20 @@ mod tests {
       .unwrap_err()
       .to_string();
     assert!(e.contains("`confirm` must be"), "{e}");
+  }
+
+  #[test]
+  fn notify_setting() {
+    let c = parse("server=s\nuser=u\npassword=p").unwrap();
+    assert_eq!(c.notify, Notify::All);
+    let c = parse("server=s\nuser=u\npassword=p\nnotify = errors").unwrap();
+    assert_eq!(c.notify, Notify::Errors);
+    let c = parse("server=s\nuser=u\npassword=p\nnotify=none").unwrap();
+    assert_eq!(c.notify, Notify::None);
+    let e = parse("server=s\nuser=u\npassword=p\nnotify=loud")
+      .unwrap_err()
+      .to_string();
+    assert!(e.contains("`notify` must be"), "{e}");
   }
 
   #[test]
