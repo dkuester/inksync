@@ -300,9 +300,12 @@ mind it.
    Book Q test.
 3. **Write-back.** Writing the position into the database only works safely
    while Nickel is not running (USB mode); see [Write-back over
-   USB](#write-back-over-usb) for whether Nickel takes it. The plugin path
-   needs a libnickel symbol to jump to a position, on both Qt5 and Qt6
-   builds, or has to rely on the database as well.
+   USB](#write-back-over-usb) for whether Nickel takes it. In the plugin
+   the database is not enough (Nickel has read the book before the open
+   hook runs and writes its own copy back); on 5.18 the open hook passes a
+   copy of the book with the pulled position instead
+   ([docs/nickel-5.18-symbols.md](docs/nickel-5.18-symbols.md)), still to
+   be checked on the device. The Qt5 symbols for 4.46 are still open.
 
 ## Test data still needed
 
