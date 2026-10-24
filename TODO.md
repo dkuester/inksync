@@ -76,7 +76,37 @@ dürfen jederzeit dazwischengeschoben werden.
   anlegen, Sync auslösen.
   - [x] **du:** Plattformen festgelegt: zuerst **macOS**, dann **Windows**,
     Linux optional, dann für möglichst viele Distributionen und Versionen.
-  - [ ] **du:** Funktionsumfang festlegen.
+  - [x] **du:** Funktionsumfang der ersten Version festgelegt (2026-10-24):
+    - **Geräte:** Tolino und Kobo (lesen, zurückschreiben, sobald es in der
+      CLI fertig ist), Kindle nur lesen (Position zum Server).
+    - **Sync:** Positionen anzeigen, Push/Pull per Knopf mit Rückfrage nach
+      der `confirm`-Einstellung, wie in der CLI. Kein automatischer Sync
+      beim Anstecken.
+    - **Zuordnung:** Vorschläge nach Titel und Autor (Kindle: `content_id`),
+      du bestätigst oder wählst selbst. Bücher ohne Zuordnung und ohne
+      gleiche Prüfsumme stehen in einer Liste „Nicht zugeordnet“ und werden
+      nicht synchronisiert.
+    - **EPUB-Originale:** aus einem konfigurierbaren Bibliotheksordner, der
+      **Calibre-Bibliothek** (nur lesend, `metadata.db` als unveränderliche
+      SQLite-Datei).
+    - **Bücher aufs Gerät kopieren:** aus der Calibre-Bibliothek auf Tolino
+      oder Kobo. Beim Kobo bietet die App an, das Buch mit **kepubify**
+      (MIT) nach kepub umzuwandeln. Beim Kopieren legt die App die
+      Zuordnung selbst an (kepub ↔ Original-EPUB), weil sie beide Dateien
+      kennt; das Tolino-EPUB bleibt unverändert und hat dieselbe Prüfsumme.
+    - **Einstellungen:** Dialog für Server, Benutzer, Passwort, Gerätename
+      und `confirm`; das Passwort liegt im Schlüsselbund (macOS) bzw. in
+      der Windows-Anmeldeinformationsverwaltung, die Datei hält nur den
+      Benutzernamen.
+    - **Gemeinsame Daten:** CLI und GUI teilen Konfiguration und
+      Zuordnungen.
+    - **Oberfläche:** normales Fenster, Deutsch und Englisch nach
+      Systemsprache, umschaltbar.
+    - **Außerdem:** Geräteansicht nebeneinander (O5), Sicherungskopie der
+      Gerätedatenbank per Knopf zurückspielen, Verlauf der Syncs,
+      Hinweis auf ein neues Release (keine Selbstaktualisierung).
+  - [ ] **du:** Klären, ob kepubify mitgeliefert wird (Binary je Plattform,
+    MIT-Hinweis nötig) oder installiert sein muss.
   - [ ] **ich:** GUI mit **egui/eframe** (reines Rust, MIT/Apache, ohne
     WebView, ein Code für alle drei Systeme).
   - [ ] **ich:** macOS: `.app`-Bundle als `.dmg`, aus der CI (macOS-Runner);

@@ -111,8 +111,17 @@ its own.
   code base: macOS first (`.app` in a `.dmg`), then Windows (`.exe`),
   Linux optional as an AppImage built on an old glibc baseline so it runs
   on as many distributions and versions as possible. Builds are unsigned
-  at first (Gatekeeper and SmartScreen warn on first start). Open: the
-  feature set.
+  at first (Gatekeeper and SmartScreen warn on first start). First
+  version: Tolino and Kobo (read, write back), Kindle read-only; push/pull
+  per button with the `confirm` prompt; mapping suggestions by title and
+  author (Kindle: `content_id`) to confirm, unmapped books listed apart;
+  EPUBs from a configurable Calibre library (read-only); copying books from
+  it to a Tolino or Kobo, on a Kobo optionally converted with kepubify
+  (MIT), which creates the mapping kepub ↔ source EPUB automatically;
+  settings dialog with the password in the system keychain; configuration
+  and mappings shared with the CLI; German and English; side-by-side device
+  view, restoring the database backup, sync history, release notice.
+  Open: whether kepubify is bundled or must be installed.
 
 - **Read-only device database layer** (S–M): reading the books and their
   positions is done (`status --device`); still to do: resolve
