@@ -211,6 +211,29 @@ although some of the missing ones were shown (q7w03 in the kepub, shifted);
 the second try stored the rest. The default font KF Libron has no glyph for
 `𝄞`. Neither affects the stored offsets.
 
+## Long book (`epub/book-r*.epub`)
+
+Book P and Book Q fit on about one screen: a position inside their probe
+chapter is on the same page as the chapter start, so opening the right
+chapter already looks right. Book R (`tools/make_long_epub.py`, plain EPUB
+[`book-r.epub`](epub/book-r.epub) and kepub
+[`book-r.kepub.epub`](epub/book-r.kepub.epub)) has three chapters
+(`OEBPS/text/chapter1.xhtml` … `chapter3.xhtml`, spine index 1 to 3, so
+`DocFragment[2]` to `[4]`) of 200 paragraphs each, many pages at any font
+size. Each paragraph starts with a marker `R<chapter>-<paragraph>` and repeats
+it in the middle, e.g. `R2-117 … (R2-117) …`; the filler is German with
+umlauts.
+
+Paragraph `k` of a chapter is `p[k]` in the XPointer, Adobe point
+`/1/4/<2k + 2>/1:…` and Kobo span `kobo.<k + 1>.1` (the heading is
+`kobo.1.1`).
+
+**To test:** put `book-r.epub` on the Tolino and into KOReader with progress
+sync on. On the Tolino open a chapter, page well into it and note the marker
+at the top of the page. Then `nickelinksync push --device … --book "Book R"`
+and in KOReader pull the progress: it should open on the page with the same
+marker. Later the same with `book-r.kepub.epub` on the Kobo.
+
 ## KOReader state (`koreader/`)
 
 `metadata.epub.lua` from KOReader 2026.07 on macOS (`cre_dom_version`

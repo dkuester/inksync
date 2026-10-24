@@ -214,3 +214,34 @@ fn unknown_chapter() {
   )
   .is_err());
 }
+
+/// Book R (`make_long_epub.py`): a position deep inside a long chapter, where
+/// a reader that only finds the chapter would show a different page.
+#[test]
+fn long_book_mid_chapter() {
+  let xpointer = |file, stored, flavor| {
+    let x = to_xpointer(&mut epub(file), &Position::parse(stored), flavor).unwrap();
+    assert!(x.exact, "{stored}");
+    assert_eq!(x.spine_index, 2);
+    x.xpointer
+  };
+  // `R2-117 ` is seven characters, so offset 7 is the first filler word.
+  for flavor in [PointFlavor::AllNodes, PointFlavor::JoinText] {
+    assert_eq!(
+      xpointer(
+        "book-r.epub",
+        "OEBPS/text/chapter2.xhtml#point(/1/4/236/1:7)",
+        flavor
+      ),
+      "/body[1]/DocFragment[3]/body[1]/p[117]/text()[1].7"
+    );
+  }
+  assert_eq!(
+    xpointer(
+      "book-r.kepub.epub",
+      "OEBPS/text/chapter2.xhtml#kobo.118.1",
+      PointFlavor::JoinText
+    ),
+    "/body[1]/DocFragment[3]/body[1]/div[1]/div[1]/p[117]/span[1]/text()[1].0"
+  );
+}

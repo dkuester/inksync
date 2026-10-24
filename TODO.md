@@ -105,9 +105,16 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
   - [x] **ich:** Markierungen auslesen (`make_db_fixture.py --bookmarks`) und
     mit den erwarteten Offsets vergleichen (Ergebnis in
     `tests/fixtures/README.md`).
-  - [ ] **du:** Gegenprobe: Ein von uns berechneter XPointer öffnet in KOReader
-    die richtige Stelle. Mit dem ersten `push` vom Tolino gegen kosync.eu
-    (siehe P1).
+  - [~] **du:** Gegenprobe: Ein von uns berechneter XPointer öffnet in KOReader
+    die richtige Stelle. Erster `push` vom Tolino gegen kosync.eu mit Book P
+    (2026-10-24): Kapitel stimmt, die Stelle im Kapitel ist so nicht
+    prüfbar, weil Book P nur etwa eine Bildschirmseite lang ist.
+  - [x] **ich:** Langes Testbuch **Book R** (`tools/make_long_epub.py`): drei
+    Kapitel mit je 200 Absätzen, jeder Absatz mit Marke `R<Kapitel>-<Absatz>`
+    (Anleitung in `tests/fixtures/README.md`).
+  - [ ] **du:** Book R auf den Tolino und in KOReader laden, auf dem Tolino
+    mitten in ein Kapitel blättern, Marke notieren; `push`, in KOReader
+    Fortschritt holen: dieselbe Marke?
 - [~] **K5 KOSync-Client**
   - [x] **ich:** Statt Docker ein kleiner Mock-Server in den Tests
     (`tests/common/mod.rs`): läuft ohne Netz und ohne echtes Konto, auch in
