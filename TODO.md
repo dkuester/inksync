@@ -271,8 +271,19 @@ beiden Geräte beim Testen nicht durcheinander.
     warten, beim Verlassen im Hintergrund bis 45 s. Diagnose im Log: jeder
     `getById` des Buchs mit Aufrufer, wo Nickel 3 s und 10 s nach dem Öffnen
     steht, und die gespeicherte Position in `pull` (Weg A, von dir gewählt).
-  - [ ] **du:** Dritter Test mit der Diagnose-Version; danach entscheiden
-    wir den Weg für das Öffnen.
+  - [x] **du:** Dritter Test (2026-10-24): WLAN-Einschalten und `push`
+    funktionieren (R3-188 kam an, KOReader zeigt es in der letzten Zeile).
+    Öffnen weiter am Kapitelanfang: ein `getById` beim Öffnen, gepatcht,
+    Nickel steht trotzdem bei `#point(/1/4/2/1:0)`. Im geladenen `Volume`
+    kommt nur das Kapitel an, nie die Stelle darin.
+  - [x] **du:** Weg C gewählt: nach dem Öffnen mit Nickels eigener
+    Navigation springen (`ReadingView::goToBookmark`); Weg B (Datenbank
+    schreiben, während Nickel läuft) nur, wenn C nicht geht.
+  - [x] **ich:** Sprung eingebaut: warten, bis das Buch offen ist,
+    Nickels Lesezeichen für die aktuelle Stelle nehmen, Start auf die
+    geholte Position setzen (`ContentLocation::create`, RMSDK-Format aus
+    `#point(`), `goToBookmark`.
+  - [ ] **du:** Vierter Test: springt Nickel an die Stelle?
 
 ## Optional (später)
 

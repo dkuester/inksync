@@ -11,15 +11,19 @@
  * Opening (ReadingController::setVolume(Volume const&, Bookmark const&)):
  *   The hook asks the CLI (`pull --live --emit`) and, if there is a position
  *   to take, sets it (Content::setChapterIdBookmarked, setPercentRead) in
- *   both places Nickel takes it from: a copy of the Volume handed to
- *   setVolume (the chapter), and the Volume that ReadingView::setupReader
- *   loads again from the database through VolumeManager::getById (the
- *   place in the chapter). The getById hook only changes that one book, and
- *   only while the original setVolume runs. Nothing is written to the
- *   database; Nickel opens at the position and saves it itself. Only for
- *   sideloaded books opened without a bookmark (not a link or a search
- *   result), and with a time limit so a missing network never blocks for
- *   long.
+ *   the copy of the Volume handed to setVolume and in the Volume that
+ *   ReadingView::setupReader loads again through VolumeManager::getById
+ *   (only that book, only while the original setVolume runs). On the
+ *   Tolino that opens the right chapter, but at its start: Nickel drops the
+ *   place in the chapter (device tests, docs/nickel-5.18-symbols.md). So
+ *   once the book is open, the plugin jumps there with Nickel's own
+ *   navigation: it takes Nickel's bookmark for the current location, sets
+ *   the pulled position as its start (ContentLocation::create,
+ *   Bookmark::setStartLocation) and calls ReadingView::goToBookmark.
+ *   Nothing is written to the database; Nickel saves the position itself.
+ *   Only for sideloaded books opened without a bookmark (not a link or a
+ *   search result), and with a time limit so a missing network never
+ *   blocks for long.
  *
  * Leaving (ReadingView::leavingReadingExperience()):
  *   The original saves the position (saveProgress); after it returns, the CLI
@@ -88,6 +92,11 @@ static const int kWifiOpenWaitMs = 12000;
 static const int kWifiLeaveWaitS = 45;
 // How long getById calls of the opened book are logged.
 static const int kWatchMs = 20000;
+// A ContentLocation is 8 bytes (a shared_ptr; see its destructor).
+static const size_t kLocationBytes = 64;
+// How often and how long the jump waits for the book to be open.
+static const int kJumpPollMs = 300;
+static const int kJumpTries = 50;
 
 // Originals, filled by NickelHook (.out).
 static void (*ReadingController__setVolume)(ReadingController *, const Volume *, const Bookmark *);
@@ -123,6 +132,18 @@ static void (*ReadingView__bookmarkForCurrentLocation)(void *result, ReadingView
 static const ContentLocation *(*Bookmark__getStartLocation)(const Bookmark *);
 static QString (*ContentLocation__toString)(const ContentLocation *);
 static void (*Bookmark__dtor)(Bookmark *);
+
+// Optional: the jump after opening.
+static bool (*ReadingView__isBookOpened)(const ReadingView *);
+static bool (*ReadingView__goToBookmark)(ReadingView *, const Bookmark *);
+static void (*Bookmark__setStartLocation)(Bookmark *, const ContentLocation *);
+// static ContentLocation create(QString position, QString spinePath):
+// result through a hidden pointer (r0); the QStrings by value arrive as
+// pointers to the caller's copies. A "#point(" position is the RMSDK
+// format, which needs no spinePath.
+static void (*ContentLocation__create)(void *result, QString *, QString *);
+static bool (*ContentLocation__isValid)(const ContentLocation *);
+static void (*ContentLocation__dtor)(ContentLocation *);
 
 // Set at the end of a successful init(); every hook passes through until then.
 static bool g_active = false;
@@ -231,16 +252,25 @@ static void when_online(int seconds, F fn)
     t->start(1000);
 }
 
+// The reading view, if it is the current view.
+static ReadingView *reading_view()
+{
+    if (!MainWindowController__sharedInstance || !MainWindowController__currentView) {
+        return nullptr;
+    }
+    QObject *view = MainWindowController__currentView(MainWindowController__sharedInstance());
+    return view && view->objectName() == QLatin1String("ReadingView") ? view : nullptr;
+}
+
 // Where Nickel stands in the open book (diagnosis).
 static void log_location(const QString &when)
 {
-    if (!MainWindowController__sharedInstance || !MainWindowController__currentView
-        || !ReadingView__bookmarkForCurrentLocation || !Bookmark__getStartLocation
+    if (!ReadingView__bookmarkForCurrentLocation || !Bookmark__getStartLocation
         || !ContentLocation__toString || !Bookmark__dtor) {
         return;
     }
-    QObject *view = MainWindowController__currentView(MainWindowController__sharedInstance());
-    if (!view || view->objectName() != QLatin1String("ReadingView")) {
+    ReadingView *view = reading_view();
+    if (!view) {
         log_line(QStringLiteral("%1: not in the reading view").arg(when));
         return;
     }
@@ -249,6 +279,57 @@ static void log_location(const QString &when)
     const QString at = ContentLocation__toString(Bookmark__getStartLocation(bookmark));
     Bookmark__dtor(bookmark);
     log_line(QStringLiteral("%1: Nickel is at %2").arg(when, at));
+}
+
+// Moves the open book `id` to `position` once Nickel has opened it, through
+// Nickel's own navigation; tries every kJumpPollMs, kJumpTries times.
+static void jump_when_open(const QString &id, const QByteArray &position, int tries = 0)
+{
+    if (!ReadingView__isBookOpened || !ReadingView__goToBookmark || !Bookmark__setStartLocation
+        || !ContentLocation__create || !ContentLocation__isValid || !ContentLocation__dtor
+        || !ReadingView__bookmarkForCurrentLocation || !Bookmark__getStartLocation
+        || !ContentLocation__toString || !Bookmark__dtor) {
+        log_line(QStringLiteral("jump: symbols missing, not jumping"));
+        return;
+    }
+    if (g_open_id != id) {
+        return;  // another book was opened meanwhile
+    }
+    ReadingView *view = reading_view();
+    if (!view || !ReadingView__isBookOpened(view)) {
+        if (tries + 1 >= kJumpTries) {
+            log_line(QStringLiteral("jump: the book did not open within %1 s").arg(kJumpTries * kJumpPollMs / 1000));
+            return;
+        }
+        QTimer::singleShot(kJumpPollMs, qApp, [id, position, tries] { jump_when_open(id, position, tries + 1); });
+        return;
+    }
+    const QString target = QString::fromUtf8(position);
+    alignas(8) unsigned char bookmark[kBookmarkBytes];
+    ReadingView__bookmarkForCurrentLocation(bookmark, view);
+    const QString at = ContentLocation__toString(Bookmark__getStartLocation(bookmark));
+    if (at == target) {
+        log_line(QStringLiteral("jump: Nickel is already at %1").arg(at));
+        Bookmark__dtor(bookmark);
+        return;
+    }
+    QString location_arg = target;
+    QString spine_path;
+    alignas(8) unsigned char location[kLocationBytes];
+    ContentLocation__create(location, &location_arg, &spine_path);
+    if (!ContentLocation__isValid(location)) {
+        log_line(QStringLiteral("jump: Nickel does not take %1 as a location").arg(target));
+    } else {
+        Bookmark__setStartLocation(bookmark, location);
+        const bool ok = ReadingView__goToBookmark(view, bookmark);
+        log_line(QStringLiteral("jump from %1 to %2 after %3 ms: %4")
+                     .arg(at, target)
+                     .arg((tries + 1) * kJumpPollMs)
+                     .arg(ok ? QStringLiteral("done") : QStringLiteral("refused")));
+        QTimer::singleShot(2000, qApp, [] { log_location(QStringLiteral("2 s after the jump")); });
+    }
+    ContentLocation__dtor(location);
+    Bookmark__dtor(bookmark);
 }
 
 // Logs where Nickel stands 3 s and 10 s after the book was opened.
@@ -372,6 +453,7 @@ void _nh_ReadingController__setVolume(ReadingController *self, const Volume *vol
     g_pending = Pending();
     Volume__dtor(copy);
     log_locations_later();
+    jump_when_open(id, p.position);
 }
 
 extern "C" __attribute__((visibility("default")))
@@ -486,7 +568,13 @@ static struct nh_dlsym NickelInkSyncDlsym[] = {
     {.name = "_ZN11ReadingView26bookmarkForCurrentLocationEv", .out = nh_symoutptr(ReadingView__bookmarkForCurrentLocation), .desc = "Diagnosis", .optional = true},
     {.name = "_ZNK8Bookmark16getStartLocationEv", .out = nh_symoutptr(Bookmark__getStartLocation), .desc = "Diagnosis", .optional = true},
     {.name = "_ZNK15ContentLocation8toStringEv", .out = nh_symoutptr(ContentLocation__toString), .desc = "Diagnosis", .optional = true},
-    {.name = "_ZN8BookmarkD1Ev", .out = nh_symoutptr(Bookmark__dtor), .desc = "Diagnosis", .optional = true},
+    {.name = "_ZN8BookmarkD1Ev", .out = nh_symoutptr(Bookmark__dtor), .desc = "Diagnosis, jump", .optional = true},
+    {.name = "_ZNK11ReadingView12isBookOpenedEv", .out = nh_symoutptr(ReadingView__isBookOpened), .desc = "Jump", .optional = true},
+    {.name = "_ZN11ReadingView12goToBookmarkERK8Bookmark", .out = nh_symoutptr(ReadingView__goToBookmark), .desc = "Jump", .optional = true},
+    {.name = "_ZN8Bookmark16setStartLocationERK15ContentLocation", .out = nh_symoutptr(Bookmark__setStartLocation), .desc = "Jump", .optional = true},
+    {.name = "_ZN15ContentLocation6createE7QStringS0_", .out = nh_symoutptr(ContentLocation__create), .desc = "Jump", .optional = true},
+    {.name = "_ZNK15ContentLocation7isValidEv", .out = nh_symoutptr(ContentLocation__isValid), .desc = "Jump", .optional = true},
+    {.name = "_ZN15ContentLocationD1Ev", .out = nh_symoutptr(ContentLocation__dtor), .desc = "Jump", .optional = true},
     {0},
 };
 

@@ -104,15 +104,38 @@ shared data, flags; see its copy constructor). Nickel opens at the new
 position and saves it itself on the next page turn and on close, so the
 database never has to be written while Nickel runs.
 
-If that still does not open at the place, the fallback is to jump after
-the book has loaded:
+**Device test of steps 1 and 2** (same day): KOReader at R3-179
+(`chapter3.xhtml#point(/1/4/360/1:57)`), the database at R3-143 in the
+same chapter. The log shows one `getById` while opening, from
+`ReadingView::setupReader`, patched, and one a second later from
+`ReadingController::currentlyOpenBook`. Nickel still stood at
+`chapter3.xhtml#point(/1/4/2/1:0)`, the chapter heading, 3 s and 10 s
+after opening: neither the pulled place nor the old one in the same
+chapter. Changing the position in a loaded `Volume` gets the chapter
+across, never the place in it.
+
+### Step 3: jump once the book is open
+
+So the plugin moves the open book with Nickel's own navigation. Polling
+every 300 ms until the reading view is current and `isBookOpened()`, it
+takes Nickel's bookmark for the current location, sets the pulled
+position as its start and calls `goToBookmark`; the `Volume` changes stay,
+so the jump stays inside the chapter Nickel opened.
 
 | Purpose | Symbol | Signature (checked) |
 |---|---|---|
-| Jump | `_ZN11ReadingView12goToBookmarkERK8Bookmark` | `bool ReadingView::goToBookmark(Bookmark const&)` (returns 1; finds the chapter through `KEPubUtility::shortcoverForBookmark`) |
-| Current position | `_ZN11ReadingView26bookmarkForCurrentLocationEv` | `Bookmark ReadingView::bookmarkForCurrentLocation()` (by value) |
+| Book open? | `_ZNK11ReadingView12isBookOpenedEv` | `bool ReadingView::isBookOpened() const` |
+| Current view | `_ZN20MainWindowController14sharedInstanceEv`, `_ZNK20MainWindowController11currentViewEv` | `MainWindowController *sharedInstance()`, `QWidget *currentView() const` (object name `ReadingView`) |
+| Current position | `_ZN11ReadingView26bookmarkForCurrentLocationEv` | `Bookmark ReadingView::bookmarkForCurrentLocation()` (by value; a `Bookmark` is 8 bytes: vtable, shared data) |
+| Its start | `_ZNK8Bookmark16getStartLocationEv` | `ContentLocation const& Bookmark::getStartLocation() const`, a **reference** (`d + 0x104`), not a value |
+| As text | `_ZNK15ContentLocation8toStringEv` | `QString ContentLocation::toString() const`: the same form as `ChapterIDBookmarked`, e.g. `OEBPS/text/chapter3.xhtml#point(/1/4/2/1:0)` |
+| Build a location | `_ZN15ContentLocation6createE7QStringS0_` | `static ContentLocation create(QString position, QString spinePath)` (by value; a `ContentLocation` is a `shared_ptr`, 8 bytes). The format comes from the position string: `^([^:#]+)(#point.+)$` is "RMSDK", parsed as `^([^#]+)(#[^:]+):(\d+)\)$`; `spinePath` is only needed for CFI |
+| Valid? | `_ZNK15ContentLocation7isValidEv` | `bool ContentLocation::isValid() const` |
+| Set it | `_ZN8Bookmark16setStartLocationERK15ContentLocation` | `void Bookmark::setStartLocation(ContentLocation const&)` (detaches; `handleSetLocation` also sets container path and offset) |
+| Jump | `_ZN11ReadingView12goToBookmarkERK8Bookmark` | `bool ReadingView::goToBookmark(Bookmark const&)` (finds the chapter through `KEPubUtility::shortcoverForBookmark`) |
 | Empty bookmark | `_ZNK8Bookmark6isNullEv` | `bool Bookmark::isNull() const` |
-| Build one | `_ZN8BookmarkC1Ev`, `_ZN8Bookmark16setStartLocationERK15ContentLocation`, `_ZN15ContentLocation6createE7QStringS0_` | `Bookmark::Bookmark()`, `void setStartLocation(ContentLocation const&)`, `static ContentLocation create(QString, QString)`; what the two strings of `create` mean is not known yet |
+
+All optional in the plugin: without them it opens as before and logs why.
 
 ## The push path
 

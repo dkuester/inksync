@@ -124,10 +124,11 @@ Thin C++ layer, no sync logic of its own:
   has saved the position): call the CLI to push, in the background.
 - On opening a book (`ReadingController::setVolume`): call the CLI to pull
   (`pull --live --emit`, time-limited) and, if there is a position to take,
-  set it in the book Nickel opens: in a copy of the `Volume` passed in (the
-  chapter) and in the `Volume` that `VolumeManager::getById` loads again
-  while opening (the place in the chapter). Nickel opens there and saves
-  it itself; the database is not written behind Nickel's back
+  set it in the book Nickel opens (a copy of the `Volume` passed in and
+  the one `VolumeManager::getById` loads again), which gets the chapter
+  across but not the place in it, then, once the book is open, jump there
+  with Nickel's own navigation (`ReadingView::goToBookmark`). The database
+  is not written behind Nickel's back
   ([docs/nickel-5.18-symbols.md](docs/nickel-5.18-symbols.md)).
 - While Nickel runs the CLI reads the database with `--live` (`mode=ro`,
   so it sees what is still in `-wal`) and never writes it.
