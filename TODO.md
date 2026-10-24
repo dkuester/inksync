@@ -290,7 +290,14 @@ beiden Geräte beim Testen nicht durcheinander.
     angeklebten Zeile in `config.ini`, mein Fehler in der Anleitung.)
   - [x] **ich:** „Offen“ heißt jetzt: Lesesicht aktiv und zweimal hintereinander
     dieselbe Stelle gemeldet.
-  - [ ] **du:** Fünfter Test: springt Nickel an die Stelle?
+  - [x] **du:** Fünfter Test (2026-10-24): Sprung gar nicht versucht, weil das
+    WLAN beim Öffnen nicht innerhalb von 12 s kam; der WLAN-Dialog (Auswahl
+    des Netzes) hat die Lesesicht verlassen und einen `push` ausgelöst.
+  - [x] **ich:** Umgebaut (von dir gewünscht): Buch öffnet sofort, im
+    Hintergrund WLAN (erst still, nach 15 s mit Nickels WLAN-Dialog, wie von
+    dir angeregt), `pull`, Sprung; kein `push`, solange das läuft. Die
+    Änderungen am `Volume` und der `getById`-Hook sind entfernt.
+  - [ ] **du:** Sechster Test: springt Nickel, auch in ein anderes Kapitel?
 
 ## Optional (später)
 

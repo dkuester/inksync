@@ -119,9 +119,18 @@ across, never the place in it.
 So the plugin moves the open book with Nickel's own navigation. Polling
 every 300 ms until the reading view is current and reports the same
 location twice in a row, it takes Nickel's bookmark for the current
-location, sets the pulled
-position as its start and calls `goToBookmark`; the `Volume` changes stay,
-so the jump stays inside the chapter Nickel opened.
+location, sets the pulled position as its start and calls `goToBookmark`.
+
+A fifth device test then showed that waiting for Wi-Fi before opening is
+the bigger problem: the connection took longer than the 12 s allowed, and
+`connectWireless(false, false)` showed Nickel's network list over the
+open reading view, which left it (and pushed). So the plugin now opens the
+book at once and does everything else in the background: Wi-Fi
+(`connectWireless(false, true)`, the silent variant that
+`connectWirelessSilently()` calls; after 15 s the dialog variant, so the
+reader can pick a network), then `pull`, then the jump. Steps 1 and 2 are
+gone: the pulled position only arrives after opening, so the jump also has
+to cross chapters.
 
 | Purpose | Symbol | Signature (checked) |
 |---|---|---|
