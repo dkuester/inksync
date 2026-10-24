@@ -6,6 +6,8 @@
 //! architecture.
 
 pub mod db;
+pub mod dom;
+pub mod epub;
 pub mod hash;
 pub mod kosync;
 pub mod position;

@@ -56,7 +56,7 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
   - [x] **ich:** Seitengeladene Bücher auflisten (`ContentType = 6`,
     `file:///mnt/onboard/`), Position aus `ChapterIDBookmarked`,
     `___PercentRead`, `DateLastRead` lesen.
-  - [ ] **ich:** Kapitel über die OPF-Spine und den `href` aus
+  - [x] **ich:** Kapitel über die OPF-Spine und den `href` aus
     `ChapterIDBookmarked` finden (relativ zur EPUB-Wurzel), nicht über das
     Format der Kapitel-`ContentID` (Kobo: Pfad, Tolino: UUID). `BookID` +
     `VolumeIndex` nur auf dem Kobo als Gegenprobe (`ContentType = 9` =
@@ -72,22 +72,25 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     Fixture-EPUBs (`tests/fixtures/koreader/`). Sie enthalten
     `partial_md5_checksum` als Vergleichswert und die Positionen für K4.
   - [x] **ich:** Test gegen diese Werte (alle sieben EPUB-Fixtures, `tests/device.rs`).
-- [ ] **K3 Position auf Kapitelebene**
-  - [ ] **ich:** `ChapterIDBookmarked` zerlegen: `href#kobo.N.M` (kepub),
-    `href#point(...)` (EPUB) und `href` ohne Fragment (Kapitelanfang).
-  - [ ] **ich:** OPF-Spine lesen, `href` → `DocFragment[n]`, Prozentwert als
-    Rückfallebene.
-  - [ ] **ich:** Tests mit den Fixtures aus G4: Heat 2 (Kobo und Tolino:
+- [~] **K3 Position auf Kapitelebene**
+  - [x] **ich:** `ChapterIDBookmarked` zerlegen: `href#kobo.N.M` (kepub),
+    `href#point(...)` (EPUB) und `href` ohne Fragment (Kapitelanfang)
+    (`position::Position::parse`).
+  - [~] **ich:** OPF-Spine lesen, `href` → `DocFragment[n]` (`epub::Epub`).
+    Offen: Prozentwert als Rückfallebene, kommt mit dem KOSync-Client (K5).
+  - [x] **ich:** Tests mit den Fixtures aus G4: Heat 2 (Kobo und Tolino:
     `xhtml-0-81.xhtml` = Spine-Index 81 → `DocFragment[82]`; auf dem Tolino
     hat die Kapitelzeile `VolumeIndex` 80) und Titan 2 (Spine-Index 39, ohne
     ToC-Eintrag und ohne Kapitelzeile).
-- [ ] **K4 Position genau**
+- [~] **K4 Position genau**
   - [x] **ich:** Aus der Datei ablesen, welchen DOM-Pfad KOReader erwartet
     (Leerraum, `koboSpan`-Elemente): KOReader behält `koboSpan` und die
     kepub-Hüllen, fasst Leerraum zusammen und zählt Zeichen; der Adobe-Point
     zählt UTF-8-Bytes (`SCOPE.md`).
-  - [ ] **ich:** Kobo-Span → XPointer und Adobe-Point → XPointer, jeweils auch
-    rückwärts.
+  - [~] **ich:** Kobo-Span → XPointer und Adobe-Point → XPointer
+    (`position::to_xpointer`): alle 48 Markierungen von Kobo und Tolino in
+    Book P und Book Q ergeben genau KOReaders XPointer. Offen: rückwärts
+    (XPointer → Kobo-Span / Adobe-Point), nötig für `pull`.
   - [x] **ich:** Zweites Probebuch für Umlaute, Zeichen mit 3 und 4 Bytes,
     CDATA, Leerraum am Absatzanfang und kombinierende Akzente, unter eigenem
     Namen (**Book Q**, `book-q*.epub`), damit es nicht mit Book P verwechselt
@@ -103,7 +106,7 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     mit den erwarteten Offsets vergleichen (Ergebnis in
     `tests/fixtures/README.md`).
   - [ ] **du:** Gegenprobe: Ein von uns berechneter XPointer öffnet in KOReader
-    die richtige Stelle.
+    die richtige Stelle. Am einfachsten mit dem ersten `push` (Etappe 3).
 - [ ] **K5 KOSync-Client**
   - [ ] **ich:** Lokalen koreader-sync-server per Docker für Tests aufsetzen.
   - [ ] **ich:** Anmeldung (`x-auth-user`, `x-auth-key` = MD5 des Passworts),

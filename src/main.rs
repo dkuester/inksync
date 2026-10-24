@@ -3,7 +3,9 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 use nickelinksync::db::{Device, Error};
+use nickelinksync::epub::Epub;
 use nickelinksync::hash::partial_md5;
+use nickelinksync::position::{to_xpointer, PointFlavor, Position};
 
 /// Sync the reading progress of sideloaded ebooks between Kobo, Tolino and
 /// KOReader through a KOSync server.
@@ -49,6 +51,21 @@ fn not_implemented(name: &str) -> Result<(), Error> {
   std::process::exit(1)
 }
 
+/// The stored position as a KOReader XPointer, or why it could not be
+/// translated.
+fn koreader(file: &Path, stored: &str, flavor: PointFlavor) -> String {
+  let translated = Epub::open(file)
+    .map_err(|e| e.to_string())
+    .and_then(|mut epub| {
+      to_xpointer(&mut epub, &Position::parse(stored), flavor).map_err(|e| e.to_string())
+    });
+  match translated {
+    Ok(x) if x.exact => x.xpointer,
+    Ok(x) => format!("{} (chapter only)", x.xpointer),
+    Err(e) => format!("(not translated: {e})"),
+  }
+}
+
 fn status(root: &Path) -> Result<(), Error> {
   let device = Device::open(root)?;
   let family = if device.db.is_tolino()? {
@@ -65,6 +82,12 @@ fn status(root: &Path) -> Result<(), Error> {
     ),
     None => println!("{family}, database version {}", device.db.version()?),
   }
+  // How Nickel counts nodes in an Adobe point depends on the firmware line.
+  let flavor = match &device.firmware {
+    Some(fw) => PointFlavor::for_firmware(&fw.version),
+    None if family == "Tolino" => PointFlavor::AllNodes,
+    None => PointFlavor::JoinText,
+  };
   let books = device.db.sideloaded_books()?;
   if books.is_empty() {
     println!("\nNo sideloaded books.");
@@ -87,6 +110,12 @@ fn status(root: &Path) -> Result<(), Error> {
       "  position  {}",
       book.position.as_deref().unwrap_or("(never opened)")
     );
+    if let Some(stored) = &book.position {
+      println!(
+        "  koreader  {}",
+        koreader(&device.book_file(book), stored, flavor)
+      );
+    }
     let state = match book.read_status {
       2 => "finished",
       1 => "reading",
