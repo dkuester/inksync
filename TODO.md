@@ -48,9 +48,12 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
 
 ## Kern
 
-- [ ] **K1 Gerätedatenbank lesen**
-  - [ ] **ich:** Nur lesend öffnen (`immutable=1` für Kopien, `mode=ro` am Gerät).
-  - [ ] **ich:** Seitengeladene Bücher auflisten (`ContentType = 6`,
+- [~] **K1 Gerätedatenbank lesen**
+  - [~] **ich:** Nur lesend öffnen: `immutable=1` für Kopien und per USB
+    angeschlossene Geräte (`db::DeviceDb::open_snapshot`, am Tolino geprüft:
+    Datei unverändert, keine Journal-Dateien). Offen: `mode=ro` auf dem
+    Gerät, während Nickel läuft (Plugin).
+  - [x] **ich:** Seitengeladene Bücher auflisten (`ContentType = 6`,
     `file:///mnt/onboard/`), Position aus `ChapterIDBookmarked`,
     `___PercentRead`, `DateLastRead` lesen.
   - [ ] **ich:** Kapitel über die OPF-Spine und den `href` aus
@@ -59,14 +62,16 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     `VolumeIndex` nur auf dem Kobo als Gegenprobe (`ContentType = 9` =
     Spine-Index); auf dem Tolino sind die Kapitelzeilen ToC-Einträge,
     `VolumeIndex` ist dort der ToC-Index (siehe `SCOPE.md`).
-  - [ ] **ich:** Firmware aus `.kobo/version` lesen (drittes Feld), Tolino an der
-    Datenbank erkennen (`tolino_*`-Tabellen).
-- [ ] **K2 Prüfsumme**
-  - [ ] **ich:** Teil-MD5 wie KOReader (1-KiB-Stichproben ab Offset 256).
+  - [x] **ich:** Firmware aus `.kobo/version` lesen (drittes Feld), Tolino an der
+    Datenbank erkennen (`tolino_*`-Tabellen). Dazu das Modell aus dem letzten
+    Feld (bekannt: Clara BW, Shine Color).
+- [x] **K2 Prüfsumme**
+  - [x] **ich:** Teil-MD5 wie KOReader: 1-KiB-Stichproben ab Offset **0**
+    (nicht 256), dann 1 KiB, 4 KiB, … (`hash::partial_md5`).
   - [x] **du:** `metadata.epub.lua` aus KOReader geliefert, für die drei
     Fixture-EPUBs (`tests/fixtures/koreader/`). Sie enthalten
     `partial_md5_checksum` als Vergleichswert und die Positionen für K4.
-  - [ ] **ich:** Test gegen diese Werte.
+  - [x] **ich:** Test gegen diese Werte (alle sieben EPUB-Fixtures, `tests/device.rs`).
 - [ ] **K3 Position auf Kapitelebene**
   - [ ] **ich:** `ChapterIDBookmarked` zerlegen: `href#kobo.N.M` (kepub),
     `href#point(...)` (EPUB) und `href` ohne Fragment (Kapitelanfang).
@@ -103,8 +108,11 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
   - [ ] **ich:** Lokalen koreader-sync-server per Docker für Tests aufsetzen.
   - [ ] **ich:** Anmeldung (`x-auth-user`, `x-auth-key` = MD5 des Passworts),
     Fortschritt lesen (`GET`) und schreiben (`PUT`).
-  - [ ] **du:** Adresse deines eigenen Servers und ein Testkonto, oder die
-    Entscheidung, vorerst nur lokal zu testen.
+  - [x] **du:** Server: **kosync.eu** (Konto vorhanden). Das Dashboard dort
+    zeigt den Lesestand je Hash und kann Testwerte wieder löschen. Das
+    Passwort gibst du nur in die lokale Konfiguration ein, nie in den Chat
+    oder ins Repo; automatische Tests laufen gegen einen Test-Server ohne
+    echtes Konto.
 
 ## Programm
 

@@ -37,8 +37,9 @@ NickelHook plugin is built twice (Qt5 and Qt6).
 
 KOSync identifies a book by a hash of its file. **First version: the user puts
 the identical file on every device**, and NickelInkSync uses KOReader's default
-"binary" hash (MD5 over 1 KiB samples at offsets 256, 1024, 4096, …, see
-[Verified findings](#verified-findings)). A kepub on one device and the source
+"binary" hash (MD5 over 1 KiB samples at offsets 0, 1024, 4096, 16384, …
+up to 1 GiB, stopping at the end of the file; checked against the
+`partial_md5_checksum` KOReader stored for every EPUB fixture). A kepub on one device and the source
 EPUB on another are different books to the server.
 
 Later: a manual mapping that links several file hashes to one book, so a

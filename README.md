@@ -14,9 +14,11 @@ It talks to a [koreader-sync-server](https://github.com/koreader/koreader-sync-s
 the same progress.
 
 > [!IMPORTANT]
-> **Status:** planning. Nothing is implemented yet. The scope and the
-> device-database findings it rests on are in [SCOPE.md](SCOPE.md), the next
-> steps are in [ROADMAP.md](ROADMAP.md).
+> **Status:** early development. `nickelinksync status --device <mount point>`
+> lists the sideloaded books of a USB-mounted Kobo or Tolino with their
+> KOReader hash and stored position; syncing is not implemented yet. The
+> scope and the device-database findings it rests on are in
+> [SCOPE.md](SCOPE.md), the next steps are in [ROADMAP.md](ROADMAP.md).
 
 ## Planned
 
