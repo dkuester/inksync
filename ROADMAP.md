@@ -138,6 +138,9 @@ what follows from a positive one. Both families are outside the current scope (N
   check (see "Recently completed") found the position readable over USB and
   character-exact. Depends on the manual book mapping; writing back is
   unchecked (`cc.db` and Amazon's own sync also hold the position).
+  Users are assumed to have no jailbreak: the base feature set is the
+  desktop CLI over USB; a jailbroken Kindle only adds to it (`cc.db`, sync
+  without a cable through an on-device daemon).
 - **PocketBook ↔ KOSync: feasibility check** (M): same question for the
   stock PocketBook reader. Why: PocketBook readers are common in Europe and
   open plain EPUBs, so the same file can be used on every device. To check:

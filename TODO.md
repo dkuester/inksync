@@ -272,6 +272,11 @@ beiden Geräte beim Testen nicht durcheinander.
   - [ ] **du:** Gekürzte, anonymisierte Kindle-Daten (`.yjf`/`.yjr` von
     Book P, Q und R, KFX-Text) durchsehen, bevor sie als Fixtures ins Repo
     kommen.
+  - [x] **du:** Festgelegt: Nutzer haben standardmäßig **keinen Jailbreak**.
+    Der Funktionsumfang wird getrennt: ohne Jailbreak Desktop-CLI per USB
+    (`.yjf`), mit Jailbreak zusätzlich `cc.db` und Sync ohne Kabel
+    (Daemon auf dem Gerät). Nichts aus dem Grundumfang darf den Jailbreak
+    brauchen.
   - [ ] **ich:** KFX-Leser und Übersetzung `eid` + Offset → XPointer
     (braucht O1 für die Buchzuordnung).
   - [ ] **du:** Prüfen, ob der Kindle eine geänderte `.yjf` übernimmt

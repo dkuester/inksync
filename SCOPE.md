@@ -292,7 +292,8 @@ mind it.
 ## Kindle (feasibility check, outside scope)
 
 Checked on a **Kindle Paperwhite 11 (PW5), firmware 5.19.2** (jailbroken,
-but everything below needs only the USB mount), with Book A, C, P, Q and R
+but everything below needs only the USB mount, so it holds for a stock
+Kindle), with Book A, C, P, Q and R
 sent through **Send-to-Kindle** (2026-10-24). Read from copies only; the
 format was decoded with our own reader, no Amazon or calibre code.
 Answer: **reading the position over USB and mapping it to KOReader works,
@@ -357,6 +358,19 @@ What it would take, and what is open:
   reader also keeps the position in `cc.db` and syncs it through Amazon
   (`sync_lpr`), so a changed `.yjf` may be ignored or overwritten. The
   Kindle also left `.yjr.bad_file` copies next to the `.yjr` files.
+- **Jailbreak:** assume users have **none**. The test Kindle is
+  jailbroken, but every finding above used only the USB mount, so it holds
+  for a stock Kindle. Any Kindle feature set is split in two:
+
+  | | Stock Kindle (default) | Jailbroken Kindle (extra) |
+  |---|---|---|
+  | Read the position | desktop CLI over USB, `.yjf` | same, plus `cc.db` (`p_location`, `p_percentFinished`) as root |
+  | Book mapping | KFX metadata + manual link to the EPUB hash | same |
+  | Write back | desktop CLI over USB, `.yjf` only, if the reader takes it (unchecked) | also `cc.db`, while the framework is stopped |
+  | Sync without a cable | no | an on-device daemon or KUAL action (no in-process hook exists on the Kindle) |
+
+  Nothing in the stock feature set may need the jailbreak; the jailbreak
+  column only adds to it.
 - Only Send-to-Kindle (PDOC KFX) was checked; books sideloaded as AZW3 or
   KFX via calibre store their position in other files (`.azw3f`/`.azw3r`).
 
