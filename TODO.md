@@ -277,7 +277,16 @@ beiden Geräte beim Testen nicht durcheinander.
     (`.yjf`), mit Jailbreak zusätzlich `cc.db` und Sync ohne Kabel
     (Daemon auf dem Gerät). Nichts aus dem Grundumfang darf den Jailbreak
     brauchen.
-  - [ ] **ich:** KFX-Leser und Übersetzung `eid` + Offset → XPointer
-    (braucht O1 für die Buchzuordnung).
+  - [x] **ich:** KFX-Leser und Übersetzung `eid` + Offset → XPointer
+    (`src/ion.rs`, `src/krds.rs`, `src/kfx.rs`, `src/kindle.rs`, eigener
+    Ion- und KRDS-Leser): `lpr`, `fpr`, `page.history.record` und
+    Markierungen aus `.yjf`/`.yjr`, Text und Positionskarten aus dem KFX;
+    jede gespeicherte `pid` passt zu den Karten. Alle Markierungsanfänge in
+    Book P und Q und die Book-R-Positionen ergeben KOReaders XPointer;
+    nur q5w04 (CDATA) ist nicht exakt (Text weicht ab, gefunden über den
+    Text danach).
+  - [ ] **ich:** Kindle in die CLI: `status --device` für einen gemounteten
+    Kindle (KFX + `.sdr` lesen, Position übersetzen), nur lesend
+    (braucht O1 für die Buchzuordnung KFX ↔ EPUB-Prüfsumme).
   - [ ] **du:** Prüfen, ob der Kindle eine geänderte `.yjf` übernimmt
     (Flugmodus, damit Amazons Sync nicht dazwischenfunkt).

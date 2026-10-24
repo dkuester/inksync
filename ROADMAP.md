@@ -70,6 +70,13 @@ L = a week or more, including verification.
       point; every Tolino highlight in Book P and Book Q and the Book R
       positions round-trip unchanged, and KOReader's highlights map to
       exactly the Tolino's points; `pull` shows the device position
+- [x] Kindle positions read and translated (library only): own Ion and
+      KRDS readers, `lpr`/`fpr`/page history/highlights from the `.yjf`
+      and `.yjr`, KFX text and position maps (every stored `pid` matches);
+      KFX `eid` + offset → KOReader XPointer by aligning the KFX blocks
+      with the EPUB's block elements; every Book P/Q highlight start and
+      the Book R positions give KOReader's XPointer, only the CDATA case
+      (q5w04) is marked not exact
 
 ## Quick wins
 
@@ -131,11 +138,11 @@ Feasibility checks (each ends in a yes/no and a sketch, not in code) and
 what follows from a positive one. Both families are outside the current scope (Nickel devices only, see
 [SCOPE.md](SCOPE.md)).
 
-- **Kindle ↔ KOSync: translation and book mapping** (L): read `lpr`
-  from the `.yjf` of a mounted Kindle, translate KFX `eid` + offset to a
-  KOReader XPointer by aligning the KFX blocks with the EPUB, and link the
-  KFX (`content_id`, title, author) to the EPUB's hash. Why: the feasibility
-  check (see "Recently completed") found the position readable over USB and
+- **Kindle ↔ KOSync: CLI and book mapping** (M): read `lpr` from the
+  `.yjf` of a mounted Kindle in `status --device` and link the KFX
+  (`content_id`, title, author) to the EPUB's hash; the reader and the
+  translation to a KOReader XPointer are done (see "Recently completed").
+  Why: the feasibility check found the position readable over USB and
   character-exact. Depends on the manual book mapping; writing back is
   unchecked (`cc.db` and Amazon's own sync also hold the position).
   Users are assumed to have no jailbreak: the base feature set is the

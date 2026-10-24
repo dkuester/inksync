@@ -349,11 +349,17 @@ What it would take, and what is open:
   file, so KOReader's partial MD5 cannot be found. Needs the manual book
   mapping (title + author from the KFX, or the 32-hex `content_id`, linked
   to an EPUB hash), or a text comparison with the EPUB.
-- **Translation:** KFX `eid` + offset → XPointer needs the KFX reader (Ion
-  binary, container, position maps) and a block-by-block alignment with the
-  EPUB DOM, splitting the flattened offset at inline elements and comments
-  and adding leading whitespace back. Books with CDATA cannot be aligned
-  exactly.
+- **Translation (done, library only):** `src/kfx.rs` reads the container,
+  text and position maps, `src/krds.rs` the `.yjf`/`.yjr`, and
+  `src/kindle.rs` aligns KFX section *n* block by block with the block
+  elements of spine item *n*: the EPUB block's text is converted like the
+  Kindle does it (whitespace collapsed, leading whitespace and comments
+  dropped, inline elements flattened), each character remembering its
+  text node, so the offset is split at inline elements and comments and
+  leading whitespace is added back. Where the texts differ (CDATA), the
+  offset is matched from the start or the end of the block and the result
+  is marked not exact; q5w04 still lands on KOReader's XPointer that way.
+  Tests: `tests/kindle.rs`.
 - **Writing back** is not checked: the `.yjf` is on the USB volume, but the
   reader also keeps the position in `cc.db` and syncs it through Amazon
   (`sync_lpr`), so a changed `.yjf` may be ignored or overwritten. The
