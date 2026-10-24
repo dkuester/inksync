@@ -465,7 +465,7 @@ fn entities(data: &[u8]) -> Result<Vec<Entity>, Error> {
     .ok_or_else(|| broken("entity index cut off"))?;
 
   let mut out = Vec::new();
-  for entry in index.chunks_exact(24) {
+  for entry in index.as_chunks::<24>().0 {
     let bad = || broken("bad entity index entry");
     let id = u32_at(entry, 0).ok_or_else(bad)?;
     let kind = u32_at(entry, 4).ok_or_else(bad)?;
