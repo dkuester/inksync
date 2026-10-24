@@ -11,3 +11,14 @@
 # Python
 __pycache__/
 *.pyc
+
+# Plugin build (NickelHook) and packages
+plugin/libnickelinksync.so
+plugin/Kobo.tgz
+plugin/KoboRoot.tgz
+plugin/NickelHook/nhplugin.json
+plugin/**/*.o
+plugin/**/*.d
+plugin/**/*.moc
+/dist/
+plugin/nm.txt

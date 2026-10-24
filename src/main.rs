@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::io::IsTerminal;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
@@ -55,12 +55,18 @@ enum Command {
     /// after a backup copy of it
     #[arg(long)]
     write: bool,
+    /// For the plugin: print each position to take as one line
+    /// `NICKELINKSYNC_POSITION<tab>percent<tab>ChapterIDBookmarked`, and
+    /// `NICKELINKSYNC_UNANSWERED<tab>n` if positions need an answer
+    #[arg(long)]
+    emit: bool,
   },
 }
 
 #[derive(Args)]
 struct Target {
-  /// Mount point of the device, e.g. /Volumes/KOBOeReader
+  /// Mount point of the device, e.g. /Volumes/KOBOeReader (/mnt/onboard on
+  /// the device itself)
   #[arg(long)]
   device: PathBuf,
   /// Configuration file [default: ~/.config/nickelinksync/config.ini]
@@ -69,6 +75,16 @@ struct Target {
   /// Only books whose title or file path contains this text
   #[arg(long)]
   book: Option<String>,
+  /// Only the book with exactly this ContentID (file:///mnt/onboard/…)
+  #[arg(long)]
+  content_id: Option<String>,
+  /// Nickel is running (on the device): read its database as it is being
+  /// written, never write it
+  #[arg(long)]
+  live: bool,
+  /// Seconds each request to the server may take
+  #[arg(long, default_value_t = 30)]
+  timeout: u64,
 }
 
 fn main() -> ExitCode {
@@ -84,7 +100,8 @@ fn main() -> ExitCode {
       target,
       force,
       write,
-    } => pull(&target, force, write),
+      emit,
+    } => pull(&target, force, write, emit),
   };
   match result {
     Ok(true) => ExitCode::SUCCESS,
@@ -107,7 +124,7 @@ struct Session {
 
 impl Session {
   fn open(target: &Target) -> Result<Self> {
-    let device = Device::open(&target.device)?;
+    let device = Device::open(&target.device, target.live)?;
     let family = if device.db.is_tolino()? {
       "Tolino"
     } else {
@@ -143,6 +160,9 @@ impl Session {
             .as_deref()
             .is_some_and(|t| t.to_lowercase().contains(&filter))
       });
+    }
+    if let Some(id) = &target.content_id {
+      books.retain(|b| &b.content_id == id);
     }
     if books.is_empty() {
       println!("\nNo sideloaded books.");
@@ -210,7 +230,8 @@ struct Server {
 impl Server {
   /// With `--config` the file must exist; the default file may be missing,
   /// then `None`.
-  fn open(path: Option<&Path>) -> Result<Option<Self>> {
+  fn open(target: &Target) -> Result<Option<Self>> {
+    let path = target.config.as_deref();
     let (path, required) = match path {
       Some(path) => (path.to_path_buf(), true),
       None => match Config::default_path() {
@@ -222,16 +243,20 @@ impl Server {
       return Ok(None);
     }
     let config = Config::load(&path)?;
-    if let Some(warning) = config::permission_warning(&path) {
-      eprintln!("nickelinksync: warning: {warning}");
+    // On the device's FAT storage every file looks world-readable.
+    if !target.live {
+      if let Some(warning) = config::permission_warning(&path) {
+        eprintln!("nickelinksync: warning: {warning}");
+      }
     }
-    let client = Client::new(&config.server, &config.user, &config.key);
+    let timeout = std::time::Duration::from_secs(target.timeout.max(1));
+    let client = Client::with_timeout(&config.server, &config.user, &config.key, timeout);
     Ok(Some(Server { config, client }))
   }
 
   /// Like [`Server::open`], but a configuration is required.
-  fn require(path: Option<&Path>) -> Result<Self> {
-    Server::open(path)?.ok_or_else(|| {
+  fn require(target: &Target) -> Result<Self> {
+    Server::open(target)?.ok_or_else(|| {
       let path = Config::default_path().unwrap_or_else(|| "config.ini".into());
       format!(
         "no configuration at {}; see README.md for the format",
@@ -262,7 +287,7 @@ fn describe(p: &Progress) -> String {
 
 fn status(target: &Target) -> Result<bool> {
   let session = Session::open(target)?;
-  let server = Server::open(target.config.as_deref())?;
+  let server = Server::open(target)?;
   match &server {
     Some(s) => println!("Server {} as {}", s.config.server, s.config.user),
     None => println!("Server not configured"),
@@ -426,7 +451,7 @@ fn unanswered_note(unanswered: usize) {
 
 fn push(target: &Target, force: bool, dry_run: bool) -> Result<bool> {
   let session = Session::open(target)?;
-  let server = Server::require(target.config.as_deref())?;
+  let server = Server::require(target)?;
   let (device, device_id) = server.config.identity(&session.model);
   server
     .client
@@ -521,9 +546,9 @@ fn push(target: &Target, force: bool, dry_run: bool) -> Result<bool> {
   Ok(ok)
 }
 
-fn pull(target: &Target, force: bool, write: bool) -> Result<bool> {
+fn pull(target: &Target, force: bool, write: bool, emit: bool) -> Result<bool> {
   let session = Session::open(target)?;
-  let server = Server::require(target.config.as_deref())?;
+  let server = Server::require(target)?;
   println!("Server {} as {}", server.config.server, server.config.user);
   let confirm_setting = server.config.confirm;
   let mut unanswered = 0;
@@ -553,6 +578,10 @@ fn pull(target: &Target, force: bool, write: bool) -> Result<bool> {
         continue;
       }
     };
+    println!(
+      "  stored    {}",
+      book.position.as_deref().unwrap_or("(never opened)")
+    );
     // Without a device position there is nothing on the device to keep.
     let local = session.local(book).ok().map(|(local, _)| local);
     let decision = match &local {
@@ -609,15 +638,25 @@ fn pull(target: &Target, force: bool, write: bool) -> Result<bool> {
       .and_then(|l| l.last_read)
       .filter(|&t| t >= remote.timestamp)
       .map(|_| iso_timestamp(remote.timestamp - 1));
+    let percent = (remote.percentage * 100.0).round().clamp(0.0, 100.0) as i64;
+    if emit {
+      println!("NICKELINKSYNC_POSITION\t{percent}\t{}", translated.position);
+    }
     writes.push(Write {
       content_id: book.content_id.clone(),
       position: translated.position.to_string(),
-      percent: (remote.percentage * 100.0).round().clamp(0.0, 100.0) as i64,
+      percent,
       last_read,
     });
   }
   unanswered_note(unanswered);
-  if !write {
+  if emit && unanswered > 0 {
+    // For the plugin: a position needs an answer it cannot give.
+    println!("NICKELINKSYNC_UNANSWERED\t{unanswered}");
+  }
+  if !write && target.live {
+    println!("\nNothing was written to the device database (Nickel is running).");
+  } else if !write {
     println!("\nDry run: nothing was written to the device; --write writes it.");
   } else if writes.is_empty() {
     println!("\nNothing to write to the device.");
@@ -630,6 +669,21 @@ fn pull(target: &Target, force: bool, write: bool) -> Result<bool> {
       .chars()
       .filter(|c| !"-:".contains(*c))
       .collect();
+    if target.live {
+      // Only the one book the plugin is about to open.
+      if target.content_id.is_none() {
+        return Err("--write with --live needs --content-id".into());
+      }
+      let made = session.device.write_live(&writes, &dir, &stamp[..8])?;
+      println!(
+        "\nWrote {} position(s) to the device database while Nickel runs.",
+        writes.len()
+      );
+      if let Some(backup) = made {
+        println!("Backup of the database (one a day): {}", backup.display());
+      }
+      return Ok(ok);
+    }
     let backup = dir.join(format!("KoboReader-{stamp}.sqlite"));
     session.device.write_positions(&writes, &backup)?;
     println!("\nWrote {} position(s) to the device.", writes.len());

@@ -127,11 +127,11 @@ dürfen jederzeit dazwischengeschoben werden.
 
 ## Kern
 
-- [~] **K1 Gerätedatenbank lesen**
-  - [~] **ich:** Nur lesend öffnen: `immutable=1` für Kopien und per USB
+- [x] **K1 Gerätedatenbank lesen**
+  - [x] **ich:** Nur lesend öffnen: `immutable=1` für Kopien und per USB
     angeschlossene Geräte (`db::DeviceDb::open_snapshot`, am Tolino geprüft:
-    Datei unverändert, keine Journal-Dateien). Offen: `mode=ro` auf dem
-    Gerät, während Nickel läuft (Plugin).
+    Datei unverändert, keine Journal-Dateien); `mode=ro` auf dem Gerät,
+    während Nickel läuft (`--live`, `db::DeviceDb::open_live`).
   - [x] **ich:** Seitengeladene Bücher auflisten (`ContentType = 6`,
     `file:///mnt/onboard/`), Position aus `ChapterIDBookmarked`,
     `___PercentRead`, `DateLastRead` lesen.
@@ -306,12 +306,106 @@ dürfen jederzeit dazwischengeschoben werden.
     mit neuer Position übergeben (`Content::setChapterIdBookmarked`,
     `setPercentRead`); Rückfall `ReadingView::goToBookmark`. Am Gerät
     noch zu prüfen (N4).
-  - [ ] **ich (K1-Rest, N4):** Auf dem Gerät die Datenbank mit `mode=ro`
-    lesen, nicht `immutable=1`: Im WAL-Modus stünde Nickels letzte
-    Änderung sonst noch in der `-wal`-Datei und fehlte.
-- [ ] **N4 Plugin Qt6**
-  - [ ] **ich:** Qt6-Build, Paket `Kobo.tgz`.
-  - [ ] **du:** Test auf dem Shine Color.
+  - [x] **ich (K1-Rest, N4):** Auf dem Gerät die Datenbank mit `mode=ro`
+    lesen, nicht `immutable=1` (`--live`): Im WAL-Modus stünde Nickels
+    letzte Änderung sonst noch in der `-wal`-Datei und fehlte.
+- [x] **N4 Plugin Qt6** · PR #22
+  - [x] **ich:** NickelHook-Plugin (`plugin/`, Submodul
+    `nicoverbruggen/NickelHook`, Branch `qt6-support`): Öffnen-Hook holt die
+    Position (`pull --live --emit`, höchstens etwa 15 s) und setzt sie in
+    das Buch, das Nickel öffnet, Verlassen-Hook sendet sie im Hintergrund
+    (`push --live`). Nur Tolino, nur mit Programm und `config.ini` in
+    `.adds/NickelInkSync/`; Log `NickelInkSync.log` daneben.
+  - [x] **ich:** CLI auf dem Gerät: `--live` (`mode=ro`, nie schreiben),
+    `--content-id`, `--timeout`, `pull --emit` (K1-Rest).
+  - [x] **ich:** Build im Qt-6.5.2-Image
+    `ghcr.io/dkuester/nickelstorygraph-toolchain` (nicht `strayrose/nickeltc`:
+    das ist Qt 5 und baut kein Plugin für 5.x), Paket `Kobo.tgz`, `just
+    plugin` / `just package`. CI-Schritt im Job `check`: Symbole gegen die
+    5.18-Liste, ARM, nur Qt 6, Handler exportiert, Artefakt
+    `NickelInkSync-tolino`.
+  - [x] **du:** Erster Test auf dem Shine Color (2026-10-24, Book R):
+    Plugin aktiv, `pull` holt R3-45 (75 %) richtig, Nickel öffnet aber nur
+    das Kapitel (R3-1): Beim Öffnen lädt Nickel das Buch noch einmal aus
+    der Datenbank (`VolumeManager::getById`) und nimmt die Stelle im Kapitel
+    von dort. Der `push` danach (R3-13, hinter dem Server) wurde nach der
+    Regel `backwards` korrekt zurückgehalten.
+  - [x] **ich:** Zusätzlicher Hook auf `VolumeManager::getById`, nur
+    während des Öffnens und nur für dieses Buch: setzt die Position auch
+    im neu geladenen Buch (Weg 1, von dir gewählt).
+  - [x] **du:** Zweiter Test (2026-10-24): `getById`-Hook greift, Nickel
+    öffnet trotzdem am Kapitelanfang (R3-1 statt R3-130). Der `push` beim
+    Verlassen scheiterte, weil kein WLAN da war (`failed to lookup
+    address`); „Jetzt synchronisieren“ ist die Tolino-Cloud und hatte nur
+    nebenbei das WLAN eingeschaltet.
+  - [x] **ich:** WLAN selbst einschalten (`WirelessWorkflowManager::
+    connectWireless`, wie NickelStorygraph): beim Öffnen höchstens 12 s
+    warten, beim Verlassen im Hintergrund bis 45 s. Diagnose im Log: jeder
+    `getById` des Buchs mit Aufrufer, wo Nickel 3 s und 10 s nach dem Öffnen
+    steht, und die gespeicherte Position in `pull` (Weg A, von dir gewählt).
+  - [x] **du:** Dritter Test (2026-10-24): WLAN-Einschalten und `push`
+    funktionieren (R3-188 kam an, KOReader zeigt es in der letzten Zeile).
+    Öffnen weiter am Kapitelanfang: ein `getById` beim Öffnen, gepatcht,
+    Nickel steht trotzdem bei `#point(/1/4/2/1:0)`. Im geladenen `Volume`
+    kommt nur das Kapitel an, nie die Stelle darin.
+  - [x] **du:** Weg C gewählt: nach dem Öffnen mit Nickels eigener
+    Navigation springen (`ReadingView::goToBookmark`); Weg B (Datenbank
+    schreiben, während Nickel läuft) nur, wenn C nicht geht.
+  - [x] **ich:** Sprung eingebaut: warten, bis das Buch offen ist,
+    Nickels Lesezeichen für die aktuelle Stelle nehmen, Start auf die
+    geholte Position setzen (`ContentLocation::create`, RMSDK-Format aus
+    `#point(`), `goToBookmark`.
+  - [x] **du:** Vierter Test (2026-10-24, `confirm = never` zum Testen):
+    KOReader-Push R2-63 kam richtig an, Tolino-Push R2-113 auch. Gesprungen
+    wurde nicht: `ReadingView::isBookOpened()` blieb 15 s lang falsch,
+    obwohl das Buch offen war. (Erster Versuch scheiterte an einer
+    angeklebten Zeile in `config.ini`, mein Fehler in der Anleitung.)
+  - [x] **ich:** „Offen“ heißt jetzt: Lesesicht aktiv und zweimal hintereinander
+    dieselbe Stelle gemeldet.
+  - [x] **du:** Fünfter Test (2026-10-24): Sprung gar nicht versucht, weil das
+    WLAN beim Öffnen nicht innerhalb von 12 s kam; der WLAN-Dialog (Auswahl
+    des Netzes) hat die Lesesicht verlassen und einen `push` ausgelöst.
+  - [x] **ich:** Umgebaut (von dir gewünscht): Buch öffnet sofort, im
+    Hintergrund WLAN (erst still, nach 15 s mit Nickels WLAN-Dialog, wie von
+    dir angeregt), `pull`, Sprung; kein `push`, solange das läuft. Die
+    Änderungen am `Volume` und der `getById`-Hook sind entfernt.
+  - [x] **du:** Sechster Test (2026-10-24): WLAN und `pull` in einer Sekunde,
+    `goToBookmark` meldet „done“, Nickel bleibt aber in Kapitel 2 (Ziel
+    Kapitel 1). Danach hat der `push` die neuere KOReader-Position auf dem
+    Server mit der Tolino-Position überschrieben.
+  - [x] **ich:** Kein `push` mehr, wenn Nickel nach dem Sprung nicht im
+    geholten Kapitel steht; `pull --live` schreibt nicht mehr „Dry run“.
+  - [x] **du:** Siebter Test (2026-10-24): Sprung innerhalb von Kapitel 2
+    (R2-121 nach R2-170): wieder „done“, Nickel bleibt stehen. Weg C ist
+    damit gescheitert. Der `push` danach hat R2-170 erneut überschrieben,
+    weil die Sperre dagegen erst im neuen Plugin war, das ich dich nicht
+    installieren ließ (mein Fehler).
+  - [x] **ich:** Weg B (vorher von dir freigegeben, falls C scheitert): vor
+    dem Öffnen still WLAN (höchstens 10 s), `pull --live --write --emit`
+    schreibt die Position in die Zeile des Buchs, während Nickel läuft
+    (SQLite-Sperren, Nickels WAL bleibt, eine Sicherung am Tag mit SQLites
+    Backup-Funktion in `.adds/NickelInkSync/backups/`), dazu die
+    `Volume`-Kopie für das Kapitel. Kein `push` für ein Buch ohne Abgleich
+    beim Öffnen oder außerhalb des geholten Kapitels.
+  - [x] **du:** Achter Test (2026-10-24): `isInternetAccessible()` blieb
+    10 s falsch, obwohl das WLAN verbunden war; das Buch öffnete
+    unverändert, und die Sperre hat den `push` danach richtig verhindert.
+  - [x] **ich:** Nickels Internet-Meldung entscheidet nur noch, wie lange
+    gewartet wird; `pull` wird immer versucht. Ohne Antwort vom Server kein
+    `push`; ohne Neueres auf dem Server ist das Buch abgeglichen und wird
+    gesendet (vorher wurde es fälschlich nie gesendet). Braucht `pull` eine
+    Antwort (`NICKELINKSYNC_UNANSWERED`), wird ebenfalls nicht gesendet.
+  - [x] **du:** Neunter Test (2026-10-24, wieder `confirm = backwards`):
+    Der KOReader-Push R3-49 kam nicht auf dem Server an, der Tolino war
+    damit neuer und blieb bei R2-121 (richtig nach der Regel). Deine Frage
+    nach dem Renderer war berechtigt: Der Tolino rendert mit **TENG**, nicht
+    RMSDK; deshalb griffen meine Eingriffe in Nickels Speicher nicht.
+  - [x] **du + ich:** Zehnter Test (2026-10-24): Server-Stand vorher geprüft
+    (R3-49 von macOS, 16:08 UTC). Beim Öffnen geschrieben und gesichert,
+    Nickel öffnet auf der Seite mit R3-49 (oben R3-48). Weitergelesen bis
+    R3-58, beim Verlassen gesendet, KOReader zeigt es. **Weg B funktioniert.**
+  - [ ] **ich (später, O3/O4):** Rückfrage im Plugin als Dialog, statt eine
+    Position, die eine Antwort braucht, liegen zu lassen.
 
 ## Optional (später)
 

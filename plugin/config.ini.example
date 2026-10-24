@@ -1,0 +1,17 @@
+# NickelInkSync on the device: copy this file to
+# .adds/NickelInkSync/config.ini and fill in your KOSync account.
+# The same format as on the desktop (README.md, "Configuration").
+
+server = https://kosync.eu
+user = alice
+password = your password
+# or, instead of the password, its MD5 hash:
+# key = 5ebe2294ecd0e0f08eab7690d2a6ee69
+
+# How the device appears on the server (optional)
+# device = Tolino Shine Color
+
+# When to ask before overwriting a position: never, backwards (default),
+# always. The plugin cannot ask yet: a position that needs an answer is left
+# alone and noted in NickelInkSync.log.
+# confirm = backwards

@@ -78,6 +78,15 @@ L = a week or more, including verification.
       the Book R positions give KOReader's XPointer, only the CDATA case
       (q5w04) is marked not exact
 
+- [x] Plugin for the Tolino Shine Color (Qt6, `Kobo.tgz`): opening a
+      sideloaded book pulls the KOSync position and writes it into the
+      book's row just before Nickel opens it (one backup a day), leaving
+      the book pushes it; Wi-Fi switched on silently; no push for a book
+      that was not brought in line. Verified on the device with Book R and
+      KOReader in both directions. The renderer is TENG; changing Nickel's
+      memory or `goToBookmark` did not move it
+      ([docs/nickel-5.18-symbols.md](docs/nickel-5.18-symbols.md))
+
 ## Quick wins
 
 - **License** (S): replace CC BY-NC 4.0 with a software license. Why: CC
@@ -134,19 +143,12 @@ its own.
 - **Position translation, back to the Kobo** (S–M): KOReader XPointer →
   Kobo span (kepub) and the 4.x Adobe point, for `pull` on the Kobo. Back to
   the Tolino is done (see "Recently completed").
-- **USB write-back** (M): `pull --write` writes a pulled position into the
-  database of a mounted Tolino, with a backup copy first (done, see
-  SCOPE.md). Blocker: confirm on the Shine Color that Nickel picks the new
-  position up after eject instead of overwriting it; then the Kobo.
+- **USB write-back on the Kobo** (S–M): `pull --write` works on the
+  Tolino (see "Recently completed"); the Kobo needs the reverse
+  translation for kepub first.
 - **NickelHook plugin, Qt5 (Kobo 4.x)** (L): push on book close, pull on open,
   jump via Nickel's own navigation. Blocker: find the libnickel symbol for
   "open at position" on 4.46; verification is on-device only.
-- **NickelHook plugin, Qt6 (Tolino 5.x)** (L): same plugin, Qt6 build and
-  `Kobo.tgz` packaging. The 5.18 symbols are found
-  ([docs/nickel-5.18-symbols.md](docs/nickel-5.18-symbols.md)): hook the
-  open (`ReadingController::setVolume`) and pass a copy of the book with the
-  pulled position, push after leaving the book. To verify on the device:
-  that Nickel opens such a copy at the new position.
 
 ## Low priority (optional)
 

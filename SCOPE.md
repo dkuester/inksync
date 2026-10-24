@@ -120,14 +120,30 @@ that breaks the static build. C dependencies such as SQLite are compiled in
 
 Thin C++ layer, no sync logic of its own:
 
-- On closing a book (or leaving the reading view): call the CLI to push.
-- On opening a book: call the CLI to pull and, if a newer position exists,
-  jump there through Nickel's own navigation instead of writing the database
-  behind Nickel's back.
+- On leaving a book (`ReadingView::leavingReadingExperience`, after Nickel
+  has saved the position): call the CLI to push, in the background.
+- On opening a book (`ReadingController::setVolume`), before Nickel loads
+  it: call the CLI to pull (`pull --live --write --emit`, time-limited),
+  which writes a position to take into the book's row, and hand Nickel a
+  copy of the `Volume` with the same position. Nickel takes the chapter
+  from the `Volume` and the place in it from the row it loads again; both
+  have to agree. Changing only what Nickel holds in memory, or jumping with
+  `ReadingView::goToBookmark`, did not work on the Tolino
+  ([docs/nickel-5.18-symbols.md](docs/nickel-5.18-symbols.md)).
+- While Nickel runs the CLI reads the database with `--live` (`mode=ro`,
+  so it sees what is still in `-wal`). It writes only with `--write` and
+  `--content-id`, for the one book about to be opened, through SQLite's
+  normal locking, leaving Nickel's WAL alone, after a backup made with
+  SQLite's backup API (one a day, the two newest kept).
+- A book opened without a pull (no network, or Nickel did not open the
+  pulled chapter) is not pushed when it is left: its device position
+  would overwrite a newer one on the server.
 - Settings (server URL, user, device name) in `.adds/NickelInkSync/config.ini`,
   in the same format as the desktop configuration (see the README), passed
-  to the CLI with `--config`.
+  to the CLI with `--config`; the CLI itself lives next to it.
 - Packaging: `KoboRoot.tgz` for 4.x, `Kobo.tgz` for 5.x (hook in `imageformats/`).
+  Built for 5.x (Qt 6.5.2) in `ghcr.io/dkuester/nickelstorygraph-toolchain`;
+  the Qt 5 image `strayrose/nickeltc` is for the 4.x build.
 
 ## Verified findings
 
@@ -285,6 +301,16 @@ updated. So Nickel takes the written position and does not overwrite it
 with the old one; it snaps to the start of the page it renders, which can
 lie up to a page before the written point. The database stays in WAL mode.
 
+**Plugin on the device** (Shine Color 5.18, *verified* 2026-10-24): the
+same holds while Nickel runs, if the row is written just before Nickel
+opens the book (`pull --live --write`, SQLite's normal locking, one backup
+a day with SQLite's backup API): Nickel opened Book R on the page with
+the pulled point. Changing only what Nickel holds in memory (the
+`Volume`s it opens from) moved the chapter but not the place in it, and
+`ReadingView::goToBookmark` did not move the open book at all; the
+renderer is TENG (see
+[docs/nickel-5.18-symbols.md](docs/nickel-5.18-symbols.md)).
+
 macOS left an AppleDouble file `._KoboReader.sqlite` next to the database
 after the write; it was gone after Nickel had run, and Nickel did not
 mind it.
@@ -415,11 +441,11 @@ What it would take, and what is open:
 3. **Write-back.** Writing the position into the database only works safely
    while Nickel is not running (USB mode); see [Write-back over
    USB](#write-back-over-usb) for whether Nickel takes it. In the plugin
-   the database is not enough (Nickel has read the book before the open
-   hook runs and writes its own copy back); on 5.18 the open hook passes a
-   copy of the book with the pulled position instead
-   ([docs/nickel-5.18-symbols.md](docs/nickel-5.18-symbols.md)), still to
-   be checked on the device. The Qt5 symbols for 4.46 are still open.
+   the database is not written (Nickel writes its own copy back); on 5.18
+   the plugin sets the pulled position in the `Volume` passed to
+   `setVolume` and in the one `VolumeManager::getById` loads while opening
+   ([docs/nickel-5.18-symbols.md](docs/nickel-5.18-symbols.md)). The Qt5
+   symbols for 4.46 are still open.
 
 ## Test data still needed
 

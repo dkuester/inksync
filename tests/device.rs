@@ -54,7 +54,7 @@ fn kobo_device() {
     "kobo-clarabw-4.46-placeholder-books.sql",
     common::KOBO_VERSION,
   );
-  let device = Device::open(&root).unwrap();
+  let device = Device::open(&root, false).unwrap();
   let fw = device.firmware.as_ref().unwrap();
   assert_eq!(fw.version, "4.46.23836");
   assert_eq!(fw.model_name(), Some("Kobo Clara BW"));
