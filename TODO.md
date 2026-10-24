@@ -105,17 +105,21 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
   - [x] **ich:** Markierungen auslesen (`make_db_fixture.py --bookmarks`) und
     mit den erwarteten Offsets vergleichen (Ergebnis in
     `tests/fixtures/README.md`).
-  - [~] **du:** Gegenprobe: Ein von uns berechneter XPointer öffnet in KOReader
-    die richtige Stelle. Erster `push` vom Tolino gegen kosync.eu mit Book P
-    (2026-10-24): Kapitel stimmt, die Stelle im Kapitel ist so nicht
-    prüfbar, weil Book P nur etwa eine Bildschirmseite lang ist.
+  - [x] **du:** Gegenprobe: Ein von uns berechneter XPointer öffnet in KOReader
+    die richtige Stelle. Mit Book P (2026-10-24) nur das Kapitel prüfbar, weil
+    das Buch etwa eine Bildschirmseite lang ist. Mit Book R (2026-10-24):
+    Tolino-Seite beginnt in R1-156 bei Zeichen 253 („spät ruhig Garten.“),
+    `push` sendet `…/p[156]/text()[1].253`, KOReader öffnet die Seite, die in
+    R1-156 bei Zeichen 44 beginnt und bis R1-160 reicht, also mit der
+    Stelle darauf; beide 27 %. Die Seiten beginnen verschieden, weil
+    KOReader anders umbricht; die Position selbst stimmt.
   - [x] **ich:** Langes Testbuch **Book R** (`tools/make_long_epub.py`): drei
     Kapitel mit je 200 Absätzen, jeder Absatz mit Marke `R<Kapitel>-<Absatz>`
     (Anleitung in `tests/fixtures/README.md`).
-  - [ ] **du:** Book R auf den Tolino und in KOReader laden, auf dem Tolino
-    mitten in ein Kapitel blättern, Marke notieren; `push`, in KOReader
-    Fortschritt holen: dieselbe Marke?
-- [~] **K5 KOSync-Client**
+  - [x] **du:** Book R auf den Tolino und in KOReader geladen, auf dem Tolino
+    mitten in Kapitel 1 geblättert, `push`, in KOReader Fortschritt geholt
+    (Ergebnis oben).
+- [x] **K5 KOSync-Client**
   - [x] **ich:** Statt Docker ein kleiner Mock-Server in den Tests
     (`tests/common/mod.rs`): läuft ohne Netz und ohne echtes Konto, auch in
     der CI.
@@ -124,7 +128,9 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     HTTPS über `rustls` (ring, eingebaute Stammzertifikate), kein OpenSSL;
     der statische ARM-Build läuft weiter. TLS gegen kosync.eu geprüft
     (Anmeldung mit Dummy-Konto wird mit 401 abgelehnt).
-  - [ ] **du + ich:** Erster echter `push` gegen kosync.eu mit deinem Konto.
+  - [x] **du + ich:** Erster echter `push` gegen kosync.eu mit deinem Konto
+    (Book P und Book R vom Tolino, 2026-10-24). Dabei gefunden: kosync.eu
+    antwortet ohne gespeicherte Position mit `[]` statt `{}`.
   - [x] **du:** Server: **kosync.eu** (Konto vorhanden). Das Dashboard dort
     zeigt den Lesestand je Hash und kann Testwerte wieder löschen. Das
     Passwort gibst du nur in die lokale Konfiguration ein, nie in den Chat
@@ -145,9 +151,9 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     überschrieben; `--dry-run`, `--book`.
   - [x] **ich:** `pull`: nur anzeigen, was sich ändern würde (Probelauf).
     Die neueste Position gewinnt; rückwärts nur nach Rückfrage (P3).
-  - [ ] **du:** Passwort in die lokale Konfiguration eintragen, dann `push`
-    vom Tolino Shine Color und das Buch in KOReader mit Sync öffnen: landet
-    es an der richtigen Stelle? (zugleich die Gegenprobe aus K4)
+  - [x] **du:** Passwort in die lokale Konfiguration eingetragen, `push` vom
+    Tolino Shine Color, Buch in KOReader mit Sync geöffnet: landet an der
+    richtigen Stelle (Book R, siehe K4).
   - [ ] **du:** Ein Durchlauf mit Kobo, Tolino und KOReader am selben Buch.
 - [ ] **P2 Rückschreiben per USB**
   - [ ] **ich:** `pull --write`: Sicherungskopie der Datenbank, dann

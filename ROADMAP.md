@@ -53,6 +53,9 @@ L = a week or more, including verification.
       overwrites a newer server position without `--force`), `status` with
       the server position, `pull` as a dry run; tested against a local mock
       server
+- [x] First real push against kosync.eu from the Tolino Shine Color: KOReader
+      opens the long probe book Book R on the page with the pushed position
+      (mid-chapter), so the forward translation holds in practice
 
 ## Quick wins
 
@@ -72,12 +75,8 @@ L = a week or more, including verification.
   and Shine Color databases in `tests/fixtures/db/`.
 - **Position translation, back to the device** (M): KOReader XPointer →
   Kobo span or Adobe point, for `pull`. The forward direction is done (see
-  "Recently completed"); the final check that a computed XPointer opens at
-  the right place in KOReader comes with the first `push`.
-- **First real sync against kosync.eu** (S): push from the Tolino Shine
-  Color, open the book in KOReader with sync and check it lands at the right
-  place (also the final check of the forward translation). Needs the owner's
-  account in the local configuration.
+  "Recently completed"); a computed XPointer opens at the right place in
+  KOReader (checked with Book R).
 - **Ask which position wins, configurable** (S–M): when the device and the
   server positions differ, optionally ask whether to keep the device or the
   server position instead of applying "newest wins" silently. A setting such
