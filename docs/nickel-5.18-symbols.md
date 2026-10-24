@@ -220,3 +220,32 @@ to fire too early.
 Not checked yet (Kobo pass, N1). Signatures change between Qt5 and Qt6
 (for example `Content::getId` has no argument on 4.x), so every symbol
 above has to be checked again in the 4.46 `libnickel`.
+
+## Messages on the screen
+
+The plugin shows each outcome of a pull or push as one of Nickel's toasts,
+the short boxes Nickel itself shows (e.g. after a rating).
+
+| Purpose | Symbol | Signature (checked) |
+|---|---|---|
+| Toast | `_ZN20MainWindowController5toastERK7QStringS2_i` | `void MainWindowController::toast(QString const& primary, QString const& secondary, int ms)` |
+
+The function is two instructions: `adds r0, #0x14` and a tail call to
+`N3ToasterController::queueMeSomeToast(QString const&, QString const&,
+int)`, so `this` is the `MainWindowController` (from `sharedInstance()`)
+and the controller at offset `0x14` queues the toast. Nothing writes
+`r0` for a result, and callers ignore it: `void`. `queueMeSomeToast`
+builds a `QueuedToast` (two `QString`s and the `int`) and, unless the
+queue is full (`ApplicationSettings::numMaxToasts()`), shows it through
+`N3ToasterController::displayToast`, which creates an `N3ToastView` with
+both lines, places it in `uiGeometry()` and starts a `QTimer` with
+`QueuedToast::getDuration()`: the `int` is how long the toast stays, in
+milliseconds. Nickel's own `RatingControls::showFeedbackToast` passes
+1500. The plugin uses 3000 for results and 5000 for problems. Optional:
+without it the plugin works as before, silently.
+
+The texts are German only for now: no way was found yet to tell the
+device language with certainty. The plugin logs `QLocale()` and
+`QLocale::system()` at start, so a device test can show whether they
+follow Nickel's language setting (`MainWindowController::updateLocale
+(QLocale const&)` exists).

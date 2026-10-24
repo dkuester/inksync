@@ -406,6 +406,25 @@ dürfen jederzeit dazwischengeschoben werden.
     R3-58, beim Verlassen gesendet, KOReader zeigt es. **Weg B funktioniert.**
   - [ ] **ich (später, O3/O4):** Rückfrage im Plugin als Dialog, statt eine
     Position, die eine Antwort braucht, liegen zu lassen.
+- [~] **N5 Meldungen im Plugin** · PR folgt
+  - [x] **ich:** Nickels Toast (`MainWindowController::toast`, per
+    Disassembly geprüft: `void`, das `int` ist die Anzeigedauer in ms) für
+    jedes Ergebnis beim Öffnen und Verlassen, vorerst nur auf Deutsch.
+    Neuer Schlüssel `notify = all | errors | none` (Standard `all`); die CLI
+    prüft ihn nur, das Plugin liest ihn selbst.
+  - [x] **ich:** CLI nennt das Ergebnis in Maschinenzeilen:
+    `pull --emit` zusätzlich `NICKELINKSYNC_FROM`, `NICKELINKSYNC_NOT_TAKEN`
+    und `NICKELINKSYNC_ERROR<tab>Art<tab>Meldung` (timeout, network, auth,
+    server, other); neu `push --emit` mit `SENT`, `IN_SYNC`, `NOT_SENT`,
+    `UNANSWERED`, `ERROR`.
+  - [x] **ich:** `push` läuft als asynchroner `QProcess` statt losgelöst
+    über `/bin/sh`; das Verlassen wartet weiter nie, die Ausgabe landet im
+    Log, sobald der Push fertig ist.
+  - [ ] **du:** Gerätetest der Meldungen (übernommen, aktuell, kein Server,
+    gesendet, nicht gesendet) und von `notify = errors`.
+  - [ ] **ich (nach dem Test):** Gerätesprache: Das Log zeigt `QLocale()`
+    beim Start; folgt sie Nickels Spracheinstellung, kommen die Meldungen
+    auch auf Englisch.
 
 ## Optional (später)
 
