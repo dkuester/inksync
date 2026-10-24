@@ -15,12 +15,45 @@ E-Reader an derselben Stelle weiterliest. Es nutzt einen
 teilen.
 
 > [!IMPORTANT]
-> **Stand:** frühe Entwicklung. `nickelinksync status --device <Mountpoint>`
-> listet die seitengeladenen Bücher eines per USB angeschlossenen Kobo oder
-> Tolino mit KOReader-Hash und gespeicherter Position; synchronisiert wird
-> noch nicht. Den Scope und die Datenbank-Befunde, auf denen er beruht,
+> **Stand:** frühe Entwicklung. Mit einem per USB angeschlossenen Kobo oder
+> Tolino überträgt `nickelinksync push` die Leseposition jedes
+> seitengeladenen Buchs zu einem KOSync-Server, `status` stellt die Position
+> auf dem Gerät und auf dem Server gegenüber, und `pull` zeigt, was eine
+> neuere Position auf dem Server ändern würde; auf das Gerät geschrieben
+> wird noch nicht. Den Scope und die Datenbank-Befunde, auf denen er beruht,
 > findest du in [SCOPE.md](SCOPE.md), die nächsten Schritte in
 > [ROADMAP.md](ROADMAP.md) (beides auf Englisch).
+
+## Benutzung
+
+```sh
+nickelinksync status --device /Volumes/KOBOeReader
+nickelinksync push --device /Volumes/KOBOeReader
+nickelinksync pull --device /Volumes/KOBOeReader
+```
+
+| Befehl | Was er tut |
+|---|---|
+| `status` | Listet die seitengeladenen Bücher mit Prüfsumme, gespeicherter Position, KOReader-XPointer und, falls eingerichtet, der Position auf dem Server. |
+| `push` | Überträgt die Position jedes Buchs zum Server. Eine Position, die der Server erst nach dem letzten Lesen auf dem Gerät bekommen hat, wird nie überschrieben; `--force` überträgt trotzdem, `--dry-run` zeigt nur, was gesendet würde. |
+| `pull` | Nur Probelauf: zeigt, für welche Bücher der Server eine neuere Position hat. Das Zurückschreiben aufs Gerät fehlt noch. |
+
+Alle drei nehmen `--book <Text>` (nur Bücher, deren Titel oder Dateipfad den
+Text enthält) und `--config <Datei>` für eine andere Konfigurationsdatei. Das
+Gerät wird nur gelesen, nie beschrieben.
+
+## Konfiguration
+
+`push` und `pull` brauchen eine Konfigurationsdatei, `status` nutzt sie, wenn
+es sie gibt. Standardort: `~/.config/nickelinksync/config.ini` (oder
+`$XDG_CONFIG_HOME/nickelinksync/config.ini`, oder der Pfad in
+`$NICKELINKSYNC_CONFIG`). Das Format steht im [englischen README](README.md#configuration):
+`server`, `user`, `password` (oder `key` = MD5 des Passworts), optional
+`device` und `device_id`.
+
+Das Passwort steht nur in dieser Datei, nie in der Befehlszeile. Halte die
+Datei privat (`chmod 600`); NickelInkSync warnt, wenn andere sie lesen
+können.
 
 ## Geplant
 
@@ -53,8 +86,9 @@ Benötigt eine stabile [Rust](https://rustup.rs)-Toolchain.
 cargo build --release
 ```
 
-Das Programm liegt danach unter `target/release/nickelinksync`. Bisher gibt es
-nur Version und Hilfe aus.
+Das Programm liegt danach unter `target/release/nickelinksync`. HTTPS läuft
+über `rustls` mit eingebauten Stammzertifikaten, OpenSSL wird nicht gebraucht,
+auch nicht auf dem Gerät.
 
 Für das Gerät (Kobo und Tolino, 32-Bit-ARM) baut man ein statisch gelinktes
 Programm mit [cargo-zigbuild](https://github.com/rust-cross/cargo-zigbuild):

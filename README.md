@@ -14,11 +14,60 @@ It talks to a [koreader-sync-server](https://github.com/koreader/koreader-sync-s
 the same progress.
 
 > [!IMPORTANT]
-> **Status:** early development. `nickelinksync status --device <mount point>`
-> lists the sideloaded books of a USB-mounted Kobo or Tolino with their
-> KOReader hash and stored position; syncing is not implemented yet. The
-> scope and the device-database findings it rests on are in
-> [SCOPE.md](SCOPE.md), the next steps are in [ROADMAP.md](ROADMAP.md).
+> **Status:** early development. With a USB-mounted Kobo or Tolino,
+> `nickelinksync push` sends the reading position of each sideloaded book
+> to a KOSync server, `status` shows the device and server positions side by
+> side, and `pull` shows what a newer server position would change, without
+> writing to the device yet. The scope and the device-database findings it
+> rests on are in [SCOPE.md](SCOPE.md), the next steps are in
+> [ROADMAP.md](ROADMAP.md).
+
+## Usage
+
+```sh
+nickelinksync status --device /Volumes/KOBOeReader
+nickelinksync push --device /Volumes/KOBOeReader
+nickelinksync pull --device /Volumes/KOBOeReader
+```
+
+| Command | What it does |
+|---|---|
+| `status` | Lists the sideloaded books with hash, stored position, KOReader XPointer and, if configured, the position on the server. |
+| `push` | Sends each book's position to the server. A position the server got after the book was last read on the device is never overwritten; `--force` sends it anyway, `--dry-run` only shows what would be sent. |
+| `pull` | Dry run only: shows which books have a newer position on the server. Writing it back to the device is not implemented yet. |
+
+All three take `--book <text>` to limit them to books whose title or file
+path contains the text, and `--config <file>` for another configuration
+file. The device is only read, never written.
+
+## Configuration
+
+`push` and `pull` need a configuration file, `status` uses it if it exists.
+Default location: `~/.config/nickelinksync/config.ini` (or
+`$XDG_CONFIG_HOME/nickelinksync/config.ini`, or the path in
+`$NICKELINKSYNC_CONFIG`).
+
+```ini
+# KOSync server and account
+server = https://kosync.eu
+user = alice
+password = your password
+# or, instead of the password, its MD5 hash:
+# key = 5ebe2294ecd0e0f08eab7690d2a6ee69
+
+# How the device appears on the server (optional)
+# device = Tolino Shine Color
+# device_id = 0123456789ABCDEF0123456789ABCDEF
+```
+
+- The password is only read from this file, never from the command line.
+  Keep the file private (`chmod 600`); NickelInkSync warns if others can
+  read it. Only the MD5 of the password is sent, as the KOSync protocol
+  requires.
+- Without `device`, each e-reader appears under its model name (for example
+  "Tolino Shine Color"), with a `device_id` derived from that name. Set both
+  only if one configuration should always report the same device.
+- Lines starting with `#` or `;` are comments; unknown keys are an error.
 
 ## Planned
 
@@ -51,8 +100,8 @@ Needs a stable [Rust](https://rustup.rs) toolchain.
 cargo build --release
 ```
 
-The binary is `target/release/nickelinksync`. It only prints its version and
-help so far.
+The binary is `target/release/nickelinksync`. HTTPS uses `rustls` with
+built-in root certificates, so no OpenSSL is needed, also not on the device.
 
 For the device (Kobo and Tolino, 32-bit ARM), build a statically linked binary
 with [cargo-zigbuild](https://github.com/rust-cross/cargo-zigbuild):

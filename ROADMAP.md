@@ -48,6 +48,11 @@ L = a week or more, including verification.
 - [x] Position translation device → KOReader: OPF spine, kepub span and
       Adobe point (both firmware lines) to a full XPointer; all 48 probe
       highlights give exactly KOReader's XPointer; `status` shows it
+- [x] KOSync client (`users/auth`, progress GET/PUT, `rustls`, static ARM
+      build unchanged) and a configuration file; `push` (newest wins, never
+      overwrites a newer server position without `--force`), `status` with
+      the server position, `pull` as a dry run; tested against a local mock
+      server
 
 ## Quick wins
 
@@ -69,9 +74,15 @@ L = a week or more, including verification.
   Kobo span or Adobe point, for `pull`. The forward direction is done (see
   "Recently completed"); the final check that a computed XPointer opens at
   the right place in KOReader comes with the first `push`.
-- **KOSync client + `push`/`pull`/`status` CLI** (M): auth headers, progress
-  GET/PUT, newest-wins conflict rule, dry-run by default for anything that
-  writes. Verification needs a reachable koreader-sync-server.
+- **First real sync against kosync.eu** (S): push from the Tolino Shine
+  Color, open the book in KOReader with sync and check it lands at the right
+  place (also the final check of the forward translation). Needs the owner's
+  account in the local configuration.
+- **Ask which position wins, configurable** (S–M): when the device and the
+  server positions differ, optionally ask whether to keep the device or the
+  server position instead of applying "newest wins" silently. A setting such
+  as `confirm = never | backwards | always`; a terminal prompt on the
+  desktop, a dialog in the plugin later.
 - **USB write-back** (M): write a pulled position into the database only
   while the device is mounted, with a backup copy first. Blocker: confirm that
   Nickel picks the new position up after eject instead of overwriting it.

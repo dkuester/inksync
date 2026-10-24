@@ -72,12 +72,12 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     Fixture-EPUBs (`tests/fixtures/koreader/`). Sie enthalten
     `partial_md5_checksum` als Vergleichswert und die Positionen für K4.
   - [x] **ich:** Test gegen diese Werte (alle sieben EPUB-Fixtures, `tests/device.rs`).
-- [~] **K3 Position auf Kapitelebene**
+- [x] **K3 Position auf Kapitelebene**
   - [x] **ich:** `ChapterIDBookmarked` zerlegen: `href#kobo.N.M` (kepub),
     `href#point(...)` (EPUB) und `href` ohne Fragment (Kapitelanfang)
     (`position::Position::parse`).
-  - [~] **ich:** OPF-Spine lesen, `href` → `DocFragment[n]` (`epub::Epub`).
-    Offen: Prozentwert als Rückfallebene, kommt mit dem KOSync-Client (K5).
+  - [x] **ich:** OPF-Spine lesen, `href` → `DocFragment[n]` (`epub::Epub`).
+    Prozentwert für KOSync: `___PercentRead / 100`.
   - [x] **ich:** Tests mit den Fixtures aus G4: Heat 2 (Kobo und Tolino:
     `xhtml-0-81.xhtml` = Spine-Index 81 → `DocFragment[82]`; auf dem Tolino
     hat die Kapitelzeile `VolumeIndex` 80) und Titan 2 (Spine-Index 39, ohne
@@ -106,11 +106,18 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
     mit den erwarteten Offsets vergleichen (Ergebnis in
     `tests/fixtures/README.md`).
   - [ ] **du:** Gegenprobe: Ein von uns berechneter XPointer öffnet in KOReader
-    die richtige Stelle. Am einfachsten mit dem ersten `push` (Etappe 3).
-- [ ] **K5 KOSync-Client**
-  - [ ] **ich:** Lokalen koreader-sync-server per Docker für Tests aufsetzen.
-  - [ ] **ich:** Anmeldung (`x-auth-user`, `x-auth-key` = MD5 des Passworts),
-    Fortschritt lesen (`GET`) und schreiben (`PUT`).
+    die richtige Stelle. Mit dem ersten `push` vom Tolino gegen kosync.eu
+    (siehe P1).
+- [~] **K5 KOSync-Client**
+  - [x] **ich:** Statt Docker ein kleiner Mock-Server in den Tests
+    (`tests/common/mod.rs`): läuft ohne Netz und ohne echtes Konto, auch in
+    der CI.
+  - [x] **ich:** Anmeldung (`x-auth-user`, `x-auth-key` = MD5 des Passworts),
+    Fortschritt lesen (`GET`) und schreiben (`PUT`) (`kosync::Client`).
+    HTTPS über `rustls` (ring, eingebaute Stammzertifikate), kein OpenSSL;
+    der statische ARM-Build läuft weiter. TLS gegen kosync.eu geprüft
+    (Anmeldung mit Dummy-Konto wird mit 401 abgelehnt).
+  - [ ] **du + ich:** Erster echter `push` gegen kosync.eu mit deinem Konto.
   - [x] **du:** Server: **kosync.eu** (Konto vorhanden). Das Dashboard dort
     zeigt den Lesestand je Hash und kann Testwerte wieder löschen. Das
     Passwort gibst du nur in die lokale Konfiguration ein, nie in den Chat
@@ -119,19 +126,36 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
 
 ## Programm
 
-- [ ] **P1 `status`, `push`, `pull`**
-  - [ ] **ich:** Konfigurationsdatei (Server, Benutzer, Gerätename); das
-    Passwort steht nicht in der Befehlszeile.
-  - [ ] **ich:** `status`: Position auf dem Gerät und auf dem Server gegenüberstellen.
-  - [ ] **ich:** `push`: Position zum Server.
-  - [ ] **ich:** `pull`: nur anzeigen, was sich ändern würde (Probelauf als
-    Standard). Die neueste Position gewinnt; rückwärts nur nach Rückfrage.
+- [~] **P1 `status`, `push`, `pull`**
+  - [x] **ich:** Konfigurationsdatei `~/.config/nickelinksync/config.ini`
+    (Server, Benutzer, Passwort oder MD5-Schlüssel, optional Gerätename und
+    -ID; Format im README). Das Passwort steht nicht in der Befehlszeile;
+    Warnung, wenn andere die Datei lesen können.
+  - [x] **ich:** `status`: Position auf dem Gerät und auf dem Server
+    gegenüberstellen, mit Hinweis, welche Seite neuer ist.
+  - [x] **ich:** `push`: Position zum Server. Eine neuere Server-Position
+    (Server-Zeitstempel nach `DateLastRead`) wird nur mit `--force`
+    überschrieben; `--dry-run`, `--book`.
+  - [x] **ich:** `pull`: nur anzeigen, was sich ändern würde (Probelauf).
+    Die neueste Position gewinnt; rückwärts nur nach Rückfrage (P3).
+  - [ ] **du:** Passwort in die lokale Konfiguration eintragen, dann `push`
+    vom Tolino Shine Color und das Buch in KOReader mit Sync öffnen: landet
+    es an der richtigen Stelle? (zugleich die Gegenprobe aus K4)
   - [ ] **du:** Ein Durchlauf mit Kobo, Tolino und KOReader am selben Buch.
 - [ ] **P2 Rückschreiben per USB**
   - [ ] **ich:** `pull --write`: Sicherungskopie der Datenbank, dann
     `ChapterIDBookmarked` und `___PercentRead` setzen.
   - [ ] **du:** Gerät auswerfen und prüfen, ob Nickel die neue Position
     übernimmt oder überschreibt.
+
+- [ ] **P3 Rückfrage bei abweichender Position (einstellbar)**
+  - [ ] **ich:** Wenn sich Position auf dem Gerät und auf dem Server
+    unterscheiden, optional fragen, welche gelten soll (Gerät oder Server),
+    statt still „die neueste gewinnt“ anzuwenden. In der Konfiguration
+    einstellbar, z. B. `confirm = never | backwards | always` (nie, nur
+    wenn es rückwärts ginge, immer). Gilt für `push` und `pull`; auf dem
+    Rechner als Frage im Terminal, später im Plugin als Dialog (O3/O4).
+  - [ ] **du:** Standardwert festlegen.
 
 ## Plugin
 
