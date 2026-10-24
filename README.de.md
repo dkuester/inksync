@@ -15,9 +15,12 @@ E-Reader an derselben Stelle weiterliest. Es nutzt einen
 teilen.
 
 > [!IMPORTANT]
-> **Stand:** Planung, noch nichts umgesetzt. Den Scope und die
-> Datenbank-Befunde, auf denen er beruht, findest du in [SCOPE.md](SCOPE.md),
-> die nächsten Schritte in [ROADMAP.md](ROADMAP.md) (beides auf Englisch).
+> **Stand:** frühe Entwicklung. `nickelinksync status --device <Mountpoint>`
+> listet die seitengeladenen Bücher eines per USB angeschlossenen Kobo oder
+> Tolino mit KOReader-Hash und gespeicherter Position; synchronisiert wird
+> noch nicht. Den Scope und die Datenbank-Befunde, auf denen er beruht,
+> findest du in [SCOPE.md](SCOPE.md), die nächsten Schritte in
+> [ROADMAP.md](ROADMAP.md) (beides auf Englisch).
 
 ## Geplant
 

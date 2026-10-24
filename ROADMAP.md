@@ -41,6 +41,10 @@ L = a week or more, including verification.
       start (`tests/fixtures/koreader/`)
 - [x] Probe book Book P highlighted on Clara BW, Shine Color and KOReader:
       offset rules for Kobo spans, Adobe points and KOReader XPointer/CFI
+- [x] Document hash: KOReader partial MD5 (first sample at offset 0, not
+      256), equal to KOReader's value for all seven EPUB fixtures
+- [x] `status --device`: lists the sideloaded books of a mounted device with
+      model, firmware, hash and stored position, without writing to it
 
 ## Quick wins
 
@@ -51,16 +55,13 @@ L = a week or more, including verification.
 
 ## High priority
 
-- **Read-only device database layer** (S–M): open `KoboReader.sqlite`
-  read-only, list sideloaded books (`ContentType = 6`, `file:///mnt/onboard/`),
-  read `ChapterIDBookmarked`, `___PercentRead`, `DateLastRead`; resolve
+- **Read-only device database layer** (S–M): reading the books and their
+  positions is done (`status --device`); still to do: resolve
   chapters through the OPF spine and the href in `ChapterIDBookmarked`, not
   the chapter `ContentID` format. `BookID` + `VolumeIndex` only as a
   cross-check on the Kobo: Tolino chapter rows are ToC entries, so their
   `VolumeIndex` is a ToC index, not a spine index. Fixtures: the Clara BW
   and Shine Color databases in `tests/fixtures/db/`.
-- **Document hash** (S): KOReader partial MD5 for a book file, with a test
-  against a hash that KOReader itself reports for the same file.
 - **Position translation, chapter level** (M): `href#kobo.N.M` and
   `href#point(...)` → spine index → `DocFragment[n]`, percentage as fallback.
   Verified on both reference devices.
