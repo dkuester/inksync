@@ -19,10 +19,12 @@ normale EPUBs, P2 am Tolino, N3, N4. Danach kommt der **Kobo** (Clara BW,
 K4 rückwärts für kepub (`#kobo.N.M`), P2 am Kobo, N1, N2. So geraten die
 beiden Geräte beim Testen nicht durcheinander.
 
-**Danach zuerst D1:** Sobald der Tolino-Durchgang abgeschlossen ist, kommt
-der **Desktop-Client mit manueller Buchzuordnung (D1)**, mit höchster
-Priorität und vor allem anderen (auch vor dem Kobo-Durchgang). Ohne die
-Zuordnung gibt es weder den Sync kepub ↔ EPUB noch den Kindle-Sync.
+**Danach zuerst D1, dann D2:** Sobald der Tolino-Durchgang abgeschlossen
+ist, kommt die **manuelle Buchzuordnung in der CLI (D1)**, danach der
+**Client mit grafischer Oberfläche (D2)**, mit höchster Priorität und vor
+allem anderen (auch vor dem Kobo-Durchgang). Ohne die Zuordnung gibt es
+weder den Sync kepub ↔ EPUB noch den Kindle-Sync. Wartung und Fehlerbehebung
+dürfen jederzeit dazwischengeschoben werden.
 
 ## Grundlagen
 
@@ -60,18 +62,20 @@ Zuordnung gibt es weder den Sync kepub ↔ EPUB noch den Kindle-Sync.
 
 ## Desktop-Client
 
-- [ ] **D1 Desktop-Client mit manueller Buchzuordnung** · höchste Priorität
-  nach dem Tolino-Durchgang. Löst O1 ab und entblockt den Sync kepub ↔ EPUB
-  und den Kindle-Sync (L1).
-  - [ ] **du:** Festlegen, was „vollwertig“ heißt: Oberfläche (grafisch
-    oder Terminal), Plattformen, welche Funktionen über `status`/`push`/`pull`
-    hinaus.
+- [ ] **D1 CLI mit manueller Buchzuordnung** · höchste Priorität nach dem
+  Tolino-Durchgang. Löst O1 ab und entblockt den Sync kepub ↔ EPUB und den
+  Kindle-Sync (L1).
   - [ ] **ich:** Zuordnungsspeicher: Buch auf dem Gerät (kepub, EPUB unter
     anderem Hash, KFX) ↔ EPUB und KOReader-Prüfsumme; Testfall Heat 2.
-  - [ ] **ich:** Zuordnung anlegen, anzeigen und löschen; Vorschläge aus
-    Titel und Autor (beim Kindle auch `content_id`).
+  - [ ] **ich:** Befehle zum Anlegen, Anzeigen und Löschen einer Zuordnung;
+    Vorschläge aus Titel und Autor (beim Kindle auch `content_id`).
   - [ ] **ich:** `status`/`push`/`pull` nutzen die Zuordnung; Positionen
     werden in der zugeordneten EPUB übersetzt.
+- [ ] **D2 Desktop-Client mit grafischer Oberfläche** · direkt nach D1.
+  Baut auf derselben Bibliothek auf: Geräte und Bücher anzeigen, Zuordnung
+  anlegen, Sync auslösen.
+  - [ ] **du:** Plattformen und Funktionsumfang festlegen.
+  - [ ] **ich:** Vorschlag für das GUI-Toolkit (Rust, MIT-kompatibel).
 
 ## Kern
 
@@ -264,7 +268,7 @@ Zuordnung gibt es weder den Sync kepub ↔ EPUB noch den Kindle-Sync.
 ## Optional (später)
 
 - [ ] **O1 Manuelle Zuordnung** von Büchern (kepub ↔ EPUB), Testfall Heat 2.
-  **Geht in D1 auf** (Desktop-Client, höchste Priorität).
+  **Geht in D1 auf** (CLI mit manueller Buchzuordnung, höchste Priorität).
   Vorbild: BookOrbit, nur als Konzept (AGPL-3.0). Blockiert auch den
   Kindle-Sync (L1): Nichts im KFX führt zur EPUB-Prüfsumme; Kandidaten für
   den Schlüssel sind `content_id` (32 Hex-Ziffern, auch im Dateinamen),
@@ -311,7 +315,7 @@ Zuordnung gibt es weder den Sync kepub ↔ EPUB noch den Kindle-Sync.
     Text danach).
   - [!] **ich:** Kindle in die CLI: `status --device` für einen gemounteten
     Kindle (KFX + `.sdr` lesen, Position übersetzen), nur lesend.
-    Blockiert durch D1 (Buchzuordnung): ohne Zuordnung KFX ↔
+    Blockiert durch D1 (Buchzuordnung in der CLI): ohne Zuordnung KFX ↔
     EPUB-Prüfsumme kein Sync.
     Der Leser und die Übersetzung liegen fertig in der Bibliothek
     (`kindle::to_xpointer`).

@@ -89,21 +89,26 @@ L = a week or more, including verification.
 
 Order: everything the Tolino Shine Color (5.18) can test on its own comes
 first (reverse translation for plain EPUB, USB write-back, Qt6 symbols and
-plugin). **Right after that, before anything else, the desktop client
-with manual book mapping.** The Kobo (4.46: kepub reverse translation,
-write-back, Qt5 plugin) follows in a pass of its own.
+plugin). **Right after that, before anything else: the manual book
+mapping in the CLI, then a desktop client with a graphical UI.**
+Maintenance and bug fixes may be slotted in at any time. The Kobo (4.46:
+kepub reverse translation, write-back, Qt5 plugin) follows in a pass of
+its own.
 
-- **Desktop client with manual book mapping** (L): a full desktop client
-  that links a book on a device (kepub, an EPUB with another hash, a
-  Kindle KFX) to the EPUB and its KOReader hash, and syncs through that
-  link. Why: without the mapping there is no sync between kepub and EPUB
-  and no Kindle sync. A manual link wins over the automatic hash match;
-  translating the position between two different files needs matching
-  chapter hrefs or a text anchor. Reference: BookOrbit's hash matching and
-  position converter (AGPL-3.0, concept only, see the license note in
+- **Manual book mapping in the CLI** (M–L): link a book on a device
+  (kepub, an EPUB with another hash, a Kindle KFX) to the EPUB and its
+  KOReader hash, and sync through that link. Why: without the mapping
+  there is no sync between kepub and EPUB and no Kindle sync. A manual
+  link wins over the automatic hash match; translating the position
+  between two different files needs matching chapter hrefs or a text
+  anchor. Reference: BookOrbit's hash matching and position converter
+  (AGPL-3.0, concept only, see the license note in
   [SCOPE.md](SCOPE.md#license)). Test case: *Heat 2* on the two reference
-  devices. Open: what "full" means (graphical or terminal UI, platforms,
-  features beyond `status`/`push`/`pull`).
+  devices.
+- **Desktop client with a graphical UI** (L): right after the CLI
+  mapping, on the same library: devices and books, creating mappings,
+  starting a sync. Open: platforms and features, GUI toolkit (Rust,
+  MIT-compatible).
 
 - **Read-only device database layer** (S–M): reading the books and their
   positions is done (`status --device`); still to do: resolve
@@ -149,7 +154,7 @@ what follows from a positive one. Both families are outside the current scope (N
   (`content_id`, title, author) to the EPUB's hash; the reader and the
   translation to a KOReader XPointer are done (see "Recently completed").
   Why: the feasibility check found the position readable over USB and
-  character-exact. Depends on the desktop client's book mapping; writing back is
+  character-exact. Depends on the manual book mapping in the CLI; writing back is
   unchecked (`cc.db` and Amazon's own sync also hold the position).
   Users are assumed to have no jailbreak: the base feature set is the
   desktop CLI over USB; a jailbroken Kindle only adds to it (`cc.db`, sync
