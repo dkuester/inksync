@@ -269,7 +269,21 @@ for the chapter estimate), `ReadStatus`, and `.kobo/BookReader.sqlite`,
 which is encrypted. If Nickel ignores the new position, these are the
 first suspects.
 
-Device test (Shine Color 5.18): *pending*.
+**Device test** (Shine Color 5.18, Book R, 2026-10-24, *verified*): KOReader
+left Book R on a page starting near the end of R2-134 and synced
+(`p[134]/text()[1].256`, 56 %). `pull --write` stored
+`chapter2.xhtml#point(/1/4/270/1:269)` and 56 %; no `-wal`, `-shm` or
+`-journal` file was left. After eject, Nickel opened Book R on the page
+that holds that point (its top in R2-133) and, when the book was closed,
+stored its own page start, `#point(/1/4/268/1:46)` (R2-133, 57 %), with
+`DateLastRead` set to the time of opening and `CurrentChapterProgress`
+updated. So Nickel takes the written position and does not overwrite it
+with the old one; it snaps to the start of the page it renders, which can
+lie up to a page before the written point. The database stays in WAL mode.
+
+macOS left an AppleDouble file `._KoboReader.sqlite` next to the database
+after the write; it was gone after Nickel had run, and Nickel did not
+mind it.
 
 ## Open technical questions
 

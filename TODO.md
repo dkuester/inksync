@@ -182,8 +182,12 @@ beiden Geräte beim Testen nicht durcheinander.
     Tolino-Datenbank ist im WAL-Modus: exklusive Sperre, Checkpoint nach dem
     Commit, danach keine `-wal`/`-shm`/`-journal`-Dateien. Schreibt nur mit
     `.kobo/version`. An einer Kopie der Shine-Color-Datenbank geprüft.
-  - [ ] **du:** Am Tolino: `pull --write`, auswerfen, Buch öffnen. Übernimmt
-    Nickel die neue Position oder überschreibt es sie?
+  - [x] **du:** Am Tolino geprüft (2026-10-24, Book R): KOReader-Seite
+    beginnt am Ende von R2-134, `pull --write` schreibt
+    `chapter2.xhtml#point(/1/4/270/1:269)`, keine Journal-Dateien übrig.
+    Nach dem Auswerfen öffnet Nickel die Seite mit dieser Stelle (oben
+    R2-133) und speichert beim Schließen den eigenen Seitenanfang
+    (`#point(/1/4/268/1:46)`, 57 %). **Nickel übernimmt die Position.**
   - [ ] **ich (Kobo-Durchgang):** dasselbe für den Kobo (braucht K4
     rückwärts für kepub).
 
