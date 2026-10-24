@@ -476,7 +476,7 @@ fn first_text(element: &Element) -> Option<(Vec<usize>, &str)> {
 /// KOReader's path from the chapter's `body` to the text node at `path`
 /// (child indices from `html`), with the offset converted to collapsed code
 /// points.
-fn koreader_path(html: &Element, path: &[usize], chars: usize) -> Option<String> {
+pub(crate) fn koreader_path(html: &Element, path: &[usize], chars: usize) -> Option<String> {
   let (&text_index, element_path) = path.split_last()?;
   let mut steps = String::new();
   let mut element = html;
