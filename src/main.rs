@@ -5,13 +5,16 @@ use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
 use nickelinksync::config::{self, Config};
-use nickelinksync::db::{Book, Device};
+use nickelinksync::db::{Book, Device, Write};
 use nickelinksync::epub::Epub;
 use nickelinksync::hash::partial_md5;
 use nickelinksync::kosync::{self, Client, Progress, Update};
-use nickelinksync::position::{from_xpointer, to_xpointer, PointFlavor, Position, XPointer};
+use nickelinksync::position::{
+  from_xpointer, to_xpointer, PointFlavor, Position, Translated, XPointer,
+};
 use nickelinksync::sync::{
-  self, decide, format_timestamp, parse_timestamp, Confirm, Decision, Direction, Local, Side,
+  self, decide, format_timestamp, iso_timestamp, parse_timestamp, Confirm, Decision, Direction,
+  Local, Side,
 };
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
@@ -40,13 +43,18 @@ enum Command {
     #[arg(long)]
     dry_run: bool,
   },
-  /// Show what a newer position on the KOSync server would change (dry run)
+  /// Show what a newer position on the KOSync server would change, and with
+  /// --write write it to the device
   Pull {
     #[command(flatten)]
     target: Target,
     /// Take the server position without asking, also if the device's is newer
     #[arg(long)]
     force: bool,
+    /// Write the positions into the device database (Tolino only so far),
+    /// after a backup copy of it
+    #[arg(long)]
+    write: bool,
   },
 }
 
@@ -72,7 +80,11 @@ fn main() -> ExitCode {
       force,
       dry_run,
     } => push(&target, force, dry_run),
-    Command::Pull { target, force } => pull(&target, force),
+    Command::Pull {
+      target,
+      force,
+      write,
+    } => pull(&target, force, write),
   };
   match result {
     Ok(true) => ExitCode::SUCCESS,
@@ -157,17 +169,12 @@ impl Session {
   }
 
   /// A server XPointer as the device would store it.
-  fn stored(&self, book: &Book, xpointer: &str) -> String {
-    let translated = Epub::open(&self.device.book_file(book))
+  fn translate(&self, book: &Book, xpointer: &str) -> std::result::Result<Translated, String> {
+    Epub::open(&self.device.book_file(book))
       .map_err(|e| e.to_string())
       .and_then(|mut epub| {
         from_xpointer(&mut epub, xpointer, self.flavor).map_err(|e| e.to_string())
-      });
-    match translated {
-      Ok(t) if t.exact => t.position.to_string(),
-      Ok(t) => format!("{} (chapter only)", t.position),
-      Err(e) => format!("(not translated: {e})"),
-    }
+      })
   }
 
   /// The device position for KOSync, or why there is none.
@@ -514,12 +521,13 @@ fn push(target: &Target, force: bool, dry_run: bool) -> Result<bool> {
   Ok(ok)
 }
 
-fn pull(target: &Target, force: bool) -> Result<bool> {
+fn pull(target: &Target, force: bool, write: bool) -> Result<bool> {
   let session = Session::open(target)?;
   let server = Server::require(target.config.as_deref())?;
   println!("Server {} as {}", server.config.server, server.config.user);
   let confirm_setting = server.config.confirm;
   let mut unanswered = 0;
+  let mut writes = Vec::new();
   let mut ok = true;
   for book in &session.books {
     heading(book);
@@ -546,14 +554,12 @@ fn pull(target: &Target, force: bool) -> Result<bool> {
       }
     };
     // Without a device position there is nothing on the device to keep.
-    let decision = match session.local(book) {
-      Ok((local, _)) => (
-        decide(Direction::Pull, &local, &remote, confirm_setting),
-        Some(local),
-      ),
-      Err(_) => (Decision::Apply, None),
+    let local = session.local(book).ok().map(|(local, _)| local);
+    let decision = match &local {
+      Some(local) => decide(Direction::Pull, local, &remote, confirm_setting),
+      None => Decision::Apply,
     };
-    let apply = match decision {
+    let apply = match (decision, &local) {
       (Decision::InSync, _) => {
         println!("  in sync   {}", describe(&remote));
         false
@@ -566,25 +572,69 @@ fn pull(target: &Target, force: bool) -> Result<bool> {
         false
       }
       (Decision::Ask { backwards, .. }, Some(local)) => {
-        // A dry run until write-back exists: never asks.
         let answer = (backwards, confirm_setting);
         confirm(
           Direction::Pull,
-          &local,
+          local,
           &remote,
           answer,
-          true,
+          !write,
           &mut unanswered,
         )?
       }
       (Decision::Ask { .. }, None) => unreachable!("asks only with a device position"),
     };
-    if apply {
-      println!("  would move to {}", describe(&remote));
-      println!("  on device {}", session.stored(book, &remote.progress));
+    if !apply {
+      continue;
     }
+    let verb = if write { "move to  " } else { "would move to" };
+    println!("  {verb} {}", describe(&remote));
+    let translated = match session.translate(book, &remote.progress) {
+      Ok(t) => t,
+      Err(e) => {
+        println!("  skipped   not translated: {e}");
+        continue;
+      }
+    };
+    let only = if translated.exact {
+      ""
+    } else {
+      " (chapter only)"
+    };
+    println!("  on device {}{only}", translated.position);
+    // Keep the server the newer side, so the next push does not send the
+    // old device position back: DateLastRead stays as it is unless it is
+    // newer than the server's position.
+    let last_read = local
+      .and_then(|l| l.last_read)
+      .filter(|&t| t >= remote.timestamp)
+      .map(|_| iso_timestamp(remote.timestamp - 1));
+    writes.push(Write {
+      content_id: book.content_id.clone(),
+      position: translated.position.to_string(),
+      percent: (remote.percentage * 100.0).round().clamp(0.0, 100.0) as i64,
+      last_read,
+    });
   }
   unanswered_note(unanswered);
-  println!("\nDry run: nothing was written to the device (write-back is not implemented yet).");
+  if !write {
+    println!("\nDry run: nothing was written to the device; --write writes it.");
+  } else if writes.is_empty() {
+    println!("\nNothing to write to the device.");
+  } else {
+    let dir = Config::backup_dir().ok_or("no directory for the backup (HOME is not set)")?;
+    let now = std::time::SystemTime::now()
+      .duration_since(std::time::UNIX_EPOCH)?
+      .as_secs() as i64;
+    let stamp: String = iso_timestamp(now)
+      .chars()
+      .filter(|c| !"-:".contains(*c))
+      .collect();
+    let backup = dir.join(format!("KoboReader-{stamp}.sqlite"));
+    session.device.write_positions(&writes, &backup)?;
+    println!("\nWrote {} position(s) to the device.", writes.len());
+    println!("Backup of the database: {}", backup.display());
+    println!("Eject the device before you open the book.");
+  }
   Ok(ok)
 }

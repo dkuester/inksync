@@ -89,9 +89,10 @@ follows in a pass of its own.
 - **Position translation, back to the Kobo** (S–M): KOReader XPointer →
   Kobo span (kepub) and the 4.x Adobe point, for `pull` on the Kobo. Back to
   the Tolino is done (see "Recently completed").
-- **USB write-back** (M): write a pulled position into the database only
-  while the device is mounted, with a backup copy first. Blocker: confirm that
-  Nickel picks the new position up after eject instead of overwriting it.
+- **USB write-back** (M): `pull --write` writes a pulled position into the
+  database of a mounted Tolino, with a backup copy first (done, see
+  SCOPE.md). Blocker: confirm on the Shine Color that Nickel picks the new
+  position up after eject instead of overwriting it; then the Kobo.
 - **NickelHook plugin, Qt5 (Kobo 4.x)** (L): push on book close, pull on open,
   jump via Nickel's own navigation. Blocker: find the libnickel symbol for
   "open at position" on 4.46; verification is on-device only.

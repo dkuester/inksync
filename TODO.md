@@ -173,17 +173,31 @@ beiden Geräte beim Testen nicht durcheinander.
     Tolino Shine Color, Buch in KOReader mit Sync geöffnet: landet an der
     richtigen Stelle (Book R, siehe K4).
   - [ ] **du:** Ein Durchlauf mit Kobo, Tolino und KOReader am selben Buch.
-- [ ] **P2 Rückschreiben per USB**
-  - [ ] **ich:** `pull --write`: Sicherungskopie der Datenbank, dann
-    `ChapterIDBookmarked` und `___PercentRead` setzen.
-  - [ ] **du:** Gerät auswerfen und prüfen, ob Nickel die neue Position
-    übernimmt oder überschreibt.
+- [~] **P2 Rückschreiben per USB** (erst Tolino, Kobo im Kobo-Durchgang)
+  - [x] **ich:** `pull --write` (`db::Device::write_positions`):
+    Sicherungskopie nach `~/.local/share/nickelinksync/backups/`, dann in
+    einer Transaktion `ChapterIDBookmarked` und `___PercentRead` setzen;
+    `DateLastRead` bleibt, außer es ist neuer als der Server, dann eine
+    Sekunde vor dem Server-Zeitstempel (Begründung in `SCOPE.md`). Die
+    Tolino-Datenbank ist im WAL-Modus: exklusive Sperre, Checkpoint nach dem
+    Commit, danach keine `-wal`/`-shm`/`-journal`-Dateien. Schreibt nur mit
+    `.kobo/version`. An einer Kopie der Shine-Color-Datenbank geprüft.
+  - [x] **du:** Am Tolino geprüft (2026-10-24, Book R): KOReader-Seite
+    beginnt am Ende von R2-134, `pull --write` schreibt
+    `chapter2.xhtml#point(/1/4/270/1:269)`, keine Journal-Dateien übrig.
+    Nach dem Auswerfen öffnet Nickel die Seite mit dieser Stelle (oben
+    R2-133) und speichert beim Schließen den eigenen Seitenanfang
+    (`#point(/1/4/268/1:46)`, 57 %). **Nickel übernimmt die Position.**
+  - [ ] **ich (Kobo-Durchgang):** dasselbe für den Kobo (braucht K4
+    rückwärts für kepub).
 
 - [x] **P3 Rückfrage bei abweichender Position (einstellbar)** · PR #18
   - [x] **ich:** `confirm = never | backwards | always` in der Konfiguration
     (`sync::decide`). „Rückwärts“: Die Position, die überschrieben würde,
-    liegt weiter hinten im Buch (Spine-Index, dann Prozent), nicht nach
-    Zeitstempel, weil Nickel `DateLastRead` schon beim Öffnen setzt. Gilt
+    liegt weiter hinten im Buch (Spine-Index, im selben Kapitel die Stelle
+    im Text, Prozent nur als Rückfall; seit P2, weil Nickel und KOReader
+    den Prozentwert verschieden berechnen), nicht nach Zeitstempel, weil
+    Nickel `DateLastRead` schon beim Öffnen setzt. Gilt
     für `push` und `pull`; im Terminal Frage „[d]evice or [s]erver?“, ohne
     Terminal wird nichts überschrieben und das Buch gemeldet; `--force`
     (jetzt auch bei `pull`) überschreibt ohne Frage. Später im Plugin als

@@ -95,8 +95,12 @@ for the device. It owns all logic:
   configuration: `never`, `backwards` (default: ask when the position that
   would be overwritten lies further on in the book than the new one) or
   `always` (ask whenever the positions differ). "Backwards" compares the
-  place in the book, spine index (`DocFragment[n]`) first, then the
-  percentage, never the timestamps: Nickel sets `DateLastRead` when a book
+  place in the book, never the timestamps: spine index (`DocFragment[n]`)
+  first, then, in the same chapter, the place in the text (paragraph, then
+  offset, where the two XPointer paths can be compared), and the
+  percentage only where neither decides. Each reader computes its own
+  percentage: on the Tolino, Nickel's page start in R2-133 said 57 % while
+  KOReader's place further on in R2-134 said 56 %. Not by time: Nickel sets `DateLastRead` when a book
   is merely opened, so newest-wins alone would let a device that was only
   opened overwrite a position read further on in KOReader. In a terminal
   the CLI asks "device or server?"; without one (the plugin, later) it
@@ -233,6 +237,58 @@ different files (calibre kepub on the Kobo, a converted EPUB on the Tolino).
 Both have 109 spine items and the same chapter hrefs, yet different hashes:
 exactly the case the later manual mapping is for.
 
+## Write-back over USB
+
+`pull --write` (Tolino so far) changes only the book row
+(`ContentType = 6`) of each pulled book, all books in one transaction,
+after a byte-for-byte checked backup copy of the database on the desktop:
+
+| Column | Set to |
+|---|---|
+| `ChapterIDBookmarked` | the server XPointer as an Adobe point (`href#point(/1/…:offset)`) |
+| `___PercentRead` | the server percentage, rounded to whole percent |
+| `DateLastRead` | unchanged, unless it is newer than the server position: then one second before the server's timestamp |
+
+`DateLastRead`: the device has not been read since, so a fresh "now"
+would be wrong, and it would make the device look newer than the server.
+If the stored point then does not round-trip exactly (a chapter-only
+fallback), the next `push` would send it back as a new position. Keeping
+the date behind the server's timestamp keeps the server the newer side:
+`push` leaves it alone and `pull` finds nothing to change. When `--force`
+or the answer "server" takes the server position although the device was
+read later, the date is moved to one second before the server's timestamp
+for the same reason. Opening the book sets it again anyway.
+
+The Tolino database is in **WAL mode** (file format bytes 18–19 are 2),
+which `immutable=1` hides (`journal_mode` reports `delete` there). The
+write keeps WAL mode, takes an exclusive lock first so SQLite needs no
+`-shm` file on the FAT file system, and checkpoints after the commit so
+the change is in `KoboReader.sqlite` itself; it refuses to start while a
+`-journal`, `-wal` or `-shm` file exists and fails if one is left after.
+Checked against a copy of the Shine Color database: integrity check
+passes, no extra files, WAL mode kept.
+
+Not changed: `CurrentChapterProgress` (position within the chapter, used
+for the chapter estimate), `ReadStatus`, and `.kobo/BookReader.sqlite`,
+which is encrypted. If Nickel ignores the new position, these are the
+first suspects.
+
+**Device test** (Shine Color 5.18, Book R, 2026-10-24, *verified*): KOReader
+left Book R on a page starting near the end of R2-134 and synced
+(`p[134]/text()[1].256`, 56 %). `pull --write` stored
+`chapter2.xhtml#point(/1/4/270/1:269)` and 56 %; no `-wal`, `-shm` or
+`-journal` file was left. After eject, Nickel opened Book R on the page
+that holds that point (its top in R2-133) and, when the book was closed,
+stored its own page start, `#point(/1/4/268/1:46)` (R2-133, 57 %), with
+`DateLastRead` set to the time of opening and `CurrentChapterProgress`
+updated. So Nickel takes the written position and does not overwrite it
+with the old one; it snaps to the start of the page it renders, which can
+lie up to a page before the written point. The database stays in WAL mode.
+
+macOS left an AppleDouble file `._KoboReader.sqlite` next to the database
+after the write; it was gone after Nickel had run, and Nickel did not
+mind it.
+
 ## Open technical questions
 
 1. **Shine 5 and Vision Color.** Assumed to match the Shine Color; not checked.
@@ -243,8 +299,10 @@ exactly the case the later manual mapping is for.
    [Verified findings](#verified-findings) hold for everything Book P and
    Book Q test.
 3. **Write-back.** Writing the position into the database only works safely
-   while Nickel is not running (USB mode). The plugin path needs a libnickel
-   symbol to jump to a position, on both Qt5 and Qt6 builds.
+   while Nickel is not running (USB mode); see [Write-back over
+   USB](#write-back-over-usb) for whether Nickel takes it. The plugin path
+   needs a libnickel symbol to jump to a position, on both Qt5 and Qt6
+   builds, or has to rely on the database as well.
 
 ## Test data still needed
 

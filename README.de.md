@@ -19,8 +19,9 @@ teilen.
 > Tolino überträgt `nickelinksync push` die Leseposition jedes
 > seitengeladenen Buchs zu einem KOSync-Server, `status` stellt die Position
 > auf dem Gerät und auf dem Server gegenüber, und `pull` zeigt, was eine
-> neuere Position auf dem Server ändern würde; auf das Gerät geschrieben
-> wird noch nicht. Den Scope und die Datenbank-Befunde, auf denen er beruht,
+> neuere Position auf dem Server ändern würde; auf einem Tolino schreibt
+> `pull --write` sie aufs Gerät (experimentell, vorher mit
+> Sicherungskopie). Den Scope und die Datenbank-Befunde, auf denen er beruht,
 > findest du in [SCOPE.md](SCOPE.md), die nächsten Schritte in
 > [ROADMAP.md](ROADMAP.md) (beides auf Englisch).
 
@@ -36,11 +37,20 @@ nickelinksync pull --device /Volumes/KOBOeReader
 |---|---|
 | `status` | Listet die seitengeladenen Bücher mit Prüfsumme, gespeicherter Position, KOReader-XPointer und, falls eingerichtet, der Position auf dem Server. |
 | `push` | Überträgt die Position jedes Buchs zum Server. Eine Position, die der Server erst nach dem letzten Lesen auf dem Gerät bekommen hat, wird nie überschrieben; außerdem fragt `push` standardmäßig nach, bevor es den Server an eine frühere Stelle im Buch zurücksetzt (siehe `confirm` unten). `--force` überträgt ohne Rückfrage, `--dry-run` zeigt nur, was gesendet würde. |
-| `pull` | Nur Probelauf: zeigt, für welche Bücher der Server eine neuere Position hat, wie das Gerät sie speichern würde (bisher nur Tolino) und wo es nachfragen würde; `--force` zeigt das Ergebnis ohne Rückfrage. Das Zurückschreiben aufs Gerät fehlt noch. |
+| `pull` | Zeigt, für welche Bücher der Server eine neuere Position hat, wie das Gerät sie speichern würde und wo es nachfragen würde. Nur mit `--write` wird sie aufs Gerät geschrieben (bisher nur Tolino, experimentell, siehe unten); `--force` übernimmt die Server-Position ohne Rückfrage. |
 
 Alle drei nehmen `--book <Text>` (nur Bücher, deren Titel oder Dateipfad den
 Text enthält) und `--config <Datei>` für eine andere Konfigurationsdatei. Das
-Gerät wird nur gelesen, nie beschrieben.
+Gerät wird nur gelesen, nie beschrieben, außer von `pull --write`.
+
+`pull --write` kopiert zuerst `.kobo/KoboReader.sqlite` nach
+`~/.local/share/nickelinksync/backups/KoboReader-<UTC-Zeit>.sqlite` (oder
+`$XDG_DATA_HOME/nickelinksync/backups`, oder `$NICKELINKSYNC_BACKUP_DIR`)
+und setzt dann die Position aller Bücher in einer Transaktion. Es schreibt
+nicht ohne `.kobo/version` (kein eingehängtes Gerät) und nicht, solange
+SQLite-Journaldateien neben der Datenbank liegen. Wirf das Gerät aus, bevor
+du das Buch öffnest. Rückgängig machen: die Sicherung bei eingehängtem Gerät
+zurück nach `.kobo/KoboReader.sqlite` kopieren.
 
 ## Konfiguration
 
@@ -60,8 +70,9 @@ statt die neuere Position gewinnen zu lassen:
 | `backwards` (Standard) | wenn die Position, die überschrieben würde, weiter hinten im Buch liegt als die neue |
 | `always` | immer, wenn sich die beiden Positionen unterscheiden |
 
-„Weiter hinten“ entscheidet die Stelle im Buch (Kapitel, dann Prozent),
-nicht die Uhrzeit: Nickel vermerkt ein Buch schon beim Öffnen als gelesen,
+„Weiter hinten“ entscheidet die Stelle im Buch (Kapitel, dann die Stelle im
+Text des Kapitels, Prozent nur, wenn das nicht entscheidet), nicht die
+Uhrzeit: Nickel vermerkt ein Buch schon beim Öffnen als gelesen,
 ein auf dem E-Reader nur geöffnetes Buch wirkt also neuer als die Seite, die
 du in KOReader erreicht hast. Im Terminal antwortest du mit `d` (Gerät) oder
 `s` (Server), Enter überspringt das Buch. Ohne Terminal wird nichts
