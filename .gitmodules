@@ -1,0 +1,4 @@
+[submodule "plugin/NickelHook"]
+	path = plugin/NickelHook
+	url = https://github.com/nicoverbruggen/NickelHook.git
+	branch = qt6-support

@@ -120,14 +120,21 @@ that breaks the static build. C dependencies such as SQLite are compiled in
 
 Thin C++ layer, no sync logic of its own:
 
-- On closing a book (or leaving the reading view): call the CLI to push.
-- On opening a book: call the CLI to pull and, if a newer position exists,
-  jump there through Nickel's own navigation instead of writing the database
-  behind Nickel's back.
+- On leaving a book (`ReadingView::leavingReadingExperience`, after Nickel
+  has saved the position): call the CLI to push, in the background.
+- On opening a book (`ReadingController::setVolume`): call the CLI to pull
+  (`pull --live --emit`, time-limited) and, if there is a position to take,
+  hand Nickel a copy of the book with that position, so Nickel opens there
+  and saves it itself, instead of writing the database behind Nickel's back
+  ([docs/nickel-5.18-symbols.md](docs/nickel-5.18-symbols.md)).
+- While Nickel runs the CLI reads the database with `--live` (`mode=ro`,
+  so it sees what is still in `-wal`) and never writes it.
 - Settings (server URL, user, device name) in `.adds/NickelInkSync/config.ini`,
   in the same format as the desktop configuration (see the README), passed
-  to the CLI with `--config`.
+  to the CLI with `--config`; the CLI itself lives next to it.
 - Packaging: `KoboRoot.tgz` for 4.x, `Kobo.tgz` for 5.x (hook in `imageformats/`).
+  Built for 5.x (Qt 6.5.2) in `ghcr.io/dkuester/nickelstorygraph-toolchain`;
+  the Qt 5 image `strayrose/nickeltc` is for the 4.x build.
 
 ## Verified findings
 

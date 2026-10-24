@@ -98,12 +98,32 @@ password = your password
   and the book is reported. `--force` overwrites without asking.
 - Lines starting with `#` or `;` are comments; unknown keys are an error.
 
-## Planned
+## Plugin for the Tolino (experimental)
 
-| Part | What it does |
-|---|---|
-| **CLI** (Rust) | Reads the position from a USB-mounted Kobo or Tolino, translates it to a KOReader position and syncs it with a KOSync server. Runs on the desktop and on the device. |
-| **Plugin** (NickelHook) | Pushes your position when you close a book and pulls a newer one when you open it, over Wi-Fi. |
+On a Tolino with firmware 5.x, a NickelHook plugin syncs without a
+computer, over Wi-Fi: when you open a sideloaded book it takes a newer
+position from the server, when you leave the book it sends yours. It
+calls the same `nickelinksync` program on the device and follows the same
+`confirm` rule; it cannot ask yet, so a position that needs an answer is
+left alone and noted in the log. On a Kobo the plugin stays inactive for
+now.
+
+1. Get `NickelInkSync-tolino` from the latest CI run (or `just package`,
+   see [Build](#build)). It holds `Kobo.tgz` and a `.adds/NickelInkSync/`
+   folder with the program and `config.ini.example`.
+2. Connect the Tolino over USB. Copy the `NickelInkSync` folder into the
+   hidden `.adds/` folder and save `config.ini.example` there as
+   `config.ini` with your account (same format as
+   [above](#configuration)).
+3. Copy `Kobo.tgz` into the hidden `.kobo/` folder and eject. The Tolino
+   installs the plugin and restarts.
+
+The log is `.adds/NickelInkSync/NickelInkSync.log`. Opening a book waits
+at most about 15 seconds for the server; without Wi-Fi it opens unchanged.
+
+**Uninstall:** create an empty file `.adds/NickelInkSync/uninstall`, eject
+and power the Tolino off and on again (the file is only checked when the
+Tolino starts).
 
 ## Devices and books
 
@@ -143,6 +163,12 @@ just build-device
 
 The binary is `target/armv7-unknown-linux-musleabihf/release/nickelinksync`.
 `just check-device` also runs `--version` in an ARM container (needs Docker).
+
+The plugin (`plugin/`, NickelHook as a submodule) is built for Qt 6.5.2 in
+the toolchain image `ghcr.io/dkuester/nickelstorygraph-toolchain` (Docker,
+amd64): `just plugin` gives `plugin/Kobo.tgz`, `just package` puts it
+together with the device binary into `dist/NickelInkSync/`. Clone with
+`--recurse-submodules`, or run `git submodule update --init`.
 Each CI run uploads the same file as the artifact `nickelinksync-armv7-musleabihf`.
 
 ## Support

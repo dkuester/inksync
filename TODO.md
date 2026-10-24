@@ -55,11 +55,11 @@ beiden Geräte beim Testen nicht durcheinander.
 
 ## Kern
 
-- [~] **K1 Gerätedatenbank lesen**
-  - [~] **ich:** Nur lesend öffnen: `immutable=1` für Kopien und per USB
+- [x] **K1 Gerätedatenbank lesen**
+  - [x] **ich:** Nur lesend öffnen: `immutable=1` für Kopien und per USB
     angeschlossene Geräte (`db::DeviceDb::open_snapshot`, am Tolino geprüft:
-    Datei unverändert, keine Journal-Dateien). Offen: `mode=ro` auf dem
-    Gerät, während Nickel läuft (Plugin).
+    Datei unverändert, keine Journal-Dateien); `mode=ro` auf dem Gerät,
+    während Nickel läuft (`--live`, `db::DeviceDb::open_live`).
   - [x] **ich:** Seitengeladene Bücher auflisten (`ContentType = 6`,
     `file:///mnt/onboard/`), Position aus `ChapterIDBookmarked`,
     `___PercentRead`, `DateLastRead` lesen.
@@ -234,12 +234,25 @@ beiden Geräte beim Testen nicht durcheinander.
     mit neuer Position übergeben (`Content::setChapterIdBookmarked`,
     `setPercentRead`); Rückfall `ReadingView::goToBookmark`. Am Gerät
     noch zu prüfen (N4).
-  - [ ] **ich (K1-Rest, N4):** Auf dem Gerät die Datenbank mit `mode=ro`
-    lesen, nicht `immutable=1`: Im WAL-Modus stünde Nickels letzte
-    Änderung sonst noch in der `-wal`-Datei und fehlte.
-- [ ] **N4 Plugin Qt6**
-  - [ ] **ich:** Qt6-Build, Paket `Kobo.tgz`.
-  - [ ] **du:** Test auf dem Shine Color.
+  - [x] **ich (K1-Rest, N4):** Auf dem Gerät die Datenbank mit `mode=ro`
+    lesen, nicht `immutable=1` (`--live`): Im WAL-Modus stünde Nickels
+    letzte Änderung sonst noch in der `-wal`-Datei und fehlte.
+- [~] **N4 Plugin Qt6**
+  - [x] **ich:** NickelHook-Plugin (`plugin/`, Submodul
+    `nicoverbruggen/NickelHook`, Branch `qt6-support`): Öffnen-Hook holt die
+    Position (`pull --live --emit`, höchstens etwa 15 s) und übergibt Nickel
+    eine Kopie des Buchs damit, Verlassen-Hook sendet sie im Hintergrund
+    (`push --live`). Nur Tolino, nur mit Programm und `config.ini` in
+    `.adds/NickelInkSync/`; Log `NickelInkSync.log` daneben.
+  - [x] **ich:** CLI auf dem Gerät: `--live` (`mode=ro`, nie schreiben),
+    `--content-id`, `--timeout`, `pull --emit` (K1-Rest).
+  - [x] **ich:** Build im Qt-6.5.2-Image
+    `ghcr.io/dkuester/nickelstorygraph-toolchain` (nicht `strayrose/nickeltc`:
+    das ist Qt 5 und baut kein Plugin für 5.x), Paket `Kobo.tgz`, `just
+    plugin` / `just package`. CI-Schritt im Job `check`: Symbole gegen die
+    5.18-Liste, ARM, nur Qt 6, Handler exportiert, Artefakt
+    `NickelInkSync-tolino`.
+  - [ ] **du:** Test auf dem Shine Color (Anleitung im PR).
 
 ## Optional (später)
 

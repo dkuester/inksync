@@ -82,12 +82,32 @@ Das Passwort steht nur in dieser Datei, nie in der Befehlszeile. Halte die
 Datei privat (`chmod 600`); NickelInkSync warnt, wenn andere sie lesen
 können.
 
-## Geplant
+## Plugin für den Tolino (experimentell)
 
-| Teil | Was er tut |
-|---|---|
-| **CLI** (Rust) | Liest die Position von einem per USB verbundenen Kobo oder Tolino, rechnet sie in eine KOReader-Position um und gleicht sie mit einem KOSync-Server ab. Läuft auf dem Rechner und auf dem Gerät. |
-| **Plugin** (NickelHook) | Überträgt die Position beim Schließen eines Buchs und holt beim Öffnen eine neuere ab, per WLAN. |
+Auf einem Tolino mit Firmware 5.x gleicht ein NickelHook-Plugin ohne
+Rechner ab, per WLAN: Beim Öffnen eines seitengeladenen Buchs holt es eine
+neuere Position vom Server, beim Verlassen des Buchs sendet es deine. Es
+ruft dasselbe Programm `nickelinksync` auf dem Gerät auf und folgt derselben
+Regel `confirm`; fragen kann es noch nicht, eine Position, die eine Antwort
+bräuchte, bleibt deshalb unverändert und steht im Log. Auf einem Kobo bleibt
+das Plugin vorerst inaktiv.
+
+1. `NickelInkSync-tolino` aus dem letzten CI-Lauf holen (oder `just
+   package`, siehe [Bauen](#bauen)). Darin liegen `Kobo.tgz` und ein Ordner
+   `.adds/NickelInkSync/` mit dem Programm und `config.ini.example`.
+2. Tolino per USB verbinden. Den Ordner `NickelInkSync` in den versteckten
+   Ordner `.adds/` kopieren und dort `config.ini.example` als `config.ini`
+   mit deinem Konto speichern (Format wie [oben](#konfiguration)).
+3. `Kobo.tgz` in den versteckten Ordner `.kobo/` kopieren und auswerfen.
+   Der Tolino installiert das Plugin und startet neu.
+
+Das Log steht in `.adds/NickelInkSync/NickelInkSync.log`. Beim Öffnen eines
+Buchs wartet das Plugin höchstens etwa 15 Sekunden auf den Server; ohne
+WLAN öffnet das Buch unverändert.
+
+**Deinstallieren:** eine leere Datei `.adds/NickelInkSync/uninstall`
+anlegen, auswerfen und den Tolino aus- und wieder einschalten (die Datei
+wird nur beim Start geprüft).
 
 ## Geräte und Bücher
 
@@ -130,6 +150,12 @@ Es liegt dann unter `target/armv7-unknown-linux-musleabihf/release/nickelinksync
 `just check-device` ruft zusätzlich `--version` in einem ARM-Container auf
 (braucht Docker). Jeder CI-Lauf lädt dieselbe Datei als Artefakt
 `nickelinksync-armv7-musleabihf` hoch.
+
+Das Plugin (`plugin/`, NickelHook als Submodul) wird für Qt 6.5.2 im
+Toolchain-Image `ghcr.io/dkuester/nickelstorygraph-toolchain` gebaut
+(Docker, amd64): `just plugin` erzeugt `plugin/Kobo.tgz`, `just package`
+legt es mit dem Geräteprogramm in `dist/NickelInkSync/` zusammen. Mit
+`--recurse-submodules` klonen oder `git submodule update --init` ausführen.
 
 ## Support
 
