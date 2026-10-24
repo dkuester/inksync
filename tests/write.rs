@@ -422,3 +422,22 @@ fn live_write_for_one_book_while_nickel_runs() {
   assert!(output.status.success(), "{out}");
   assert_eq!(s.backups().len(), 1);
 }
+
+#[test]
+fn live_pull_tells_the_plugin_about_an_unanswered_question() {
+  let s = Setup::tolino("live-unanswered");
+  let _nickel = nickel_running(&s, "OEBPS/xhtml/xhtml-0-81.xhtml#point(/1/2/1/1:0)");
+  // Newer, but behind the device: `backwards` asks, and nobody can answer.
+  s.server.store(
+    &hash("book-a.epub"),
+    "/body[1]/DocFragment[5]/body[1]/p[1]/text()[1].0",
+    0.03,
+    LAST_READ + 60,
+  );
+  let args = ["pull", "--live", "--content-id", BOOK, "--write", "--emit"];
+  let (output, out) = s.run(&args);
+  assert!(output.status.success(), "{out}");
+  assert!(out.contains("\nNICKELINKSYNC_UNANSWERED\t1\n"), "{out}");
+  assert!(!out.contains("NICKELINKSYNC_POSITION"), "{out}");
+  assert!(s.backups().is_empty());
+}

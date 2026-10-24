@@ -56,7 +56,8 @@ enum Command {
     #[arg(long)]
     write: bool,
     /// For the plugin: print each position to take as one line
-    /// `NICKELINKSYNC_POSITION<tab>percent<tab>ChapterIDBookmarked`
+    /// `NICKELINKSYNC_POSITION<tab>percent<tab>ChapterIDBookmarked`, and
+    /// `NICKELINKSYNC_UNANSWERED<tab>n` if positions need an answer
     #[arg(long)]
     emit: bool,
   },
@@ -649,6 +650,10 @@ fn pull(target: &Target, force: bool, write: bool, emit: bool) -> Result<bool> {
     });
   }
   unanswered_note(unanswered);
+  if emit && unanswered > 0 {
+    // For the plugin: a position needs an answer it cannot give.
+    println!("NICKELINKSYNC_UNANSWERED\t{unanswered}");
+  }
   if !write && target.live {
     println!("\nNothing was written to the device database (Nickel is running).");
   } else if !write {

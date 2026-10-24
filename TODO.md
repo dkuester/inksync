@@ -315,7 +315,15 @@ beiden Geräte beim Testen nicht durcheinander.
     Backup-Funktion in `.adds/NickelInkSync/backups/`), dazu die
     `Volume`-Kopie für das Kapitel. Kein `push` für ein Buch ohne Abgleich
     beim Öffnen oder außerhalb des geholten Kapitels.
-  - [ ] **du:** Achter Test: öffnet das Buch an der KOReader-Stelle?
+  - [x] **du:** Achter Test (2026-10-24): `isInternetAccessible()` blieb
+    10 s falsch, obwohl das WLAN verbunden war; das Buch öffnete
+    unverändert, und die Sperre hat den `push` danach richtig verhindert.
+  - [x] **ich:** Nickels Internet-Meldung entscheidet nur noch, wie lange
+    gewartet wird; `pull` wird immer versucht. Ohne Antwort vom Server kein
+    `push`; ohne Neueres auf dem Server ist das Buch abgeglichen und wird
+    gesendet (vorher wurde es fälschlich nie gesendet). Braucht `pull` eine
+    Antwort (`NICKELINKSYNC_UNANSWERED`), wird ebenfalls nicht gesendet.
+  - [ ] **du:** Neunter Test: öffnet das Buch an der KOReader-Stelle?
 
 ## Optional (später)
 

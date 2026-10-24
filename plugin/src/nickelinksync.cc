@@ -82,7 +82,7 @@ static const char kSideloaded[] = "file:///mnt/onboard/";
 static const qint64 kLogMaxBytes = 128 * 1024;
 // Seconds per request for pull, and how long opening may wait for it as a
 // whole (CLI start, database, backup, hash, two requests).
-static const char kPullTimeout[] = "6";
+static const char kPullTimeout[] = "5";
 static const int kPullWaitMs = 15000;
 // How long opening waits for Wi-Fi; how long leaving waits in the
 // background, the first kSilentWifiS without a dialog.
@@ -283,6 +283,10 @@ static QStringList book_args(const char *command, const QString &id)
 }
 
 struct Pulled {
+    // The CLI ran and finished with exit 0 (the server answered).
+    bool ok = false;
+    // A position would need an answer the plugin cannot give.
+    bool unanswered = false;
     bool found = false;
     int percent = 0;
     QByteArray position;
@@ -319,8 +323,12 @@ static Pulled pull_and_write(const QString &id)
     if (p.exitStatus() != QProcess::NormalExit || p.exitCode() != 0) {
         return result;
     }
+    result.ok = true;
     for (const QByteArray &line : out.split('\n')) {
         const QList<QByteArray> f = line.trimmed().split('\t');
+        if (f.size() == 2 && f[0] == "NICKELINKSYNC_UNANSWERED") {
+            result.unanswered = true;
+        }
         if (f.size() == 3 && f[0] == "NICKELINKSYNC_POSITION" && !f[2].isEmpty()) {
             bool ok = false;
             const int percent = f[1].toInt(&ok);
@@ -355,15 +363,27 @@ void _nh_ReadingController__setVolume(ReadingController *self, const Volume *vol
     }
     // Until the server's position is known, this book is not in line with it.
     g_not_synced = id;
+    // isInternetAccessible() only reports Nickel's own connectivity check:
+    // it stayed false for 10 s with Wi-Fi connected (device test). So it
+    // only decides how long to wait; the CLI always tries, and fails fast
+    // without a network.
     if (!wait_online(kOpenWifiMs)) {
-        log_line(QStringLiteral("open %1 unchanged: no network; leaving it will not push").arg(id));
+        log_line(QStringLiteral("Nickel reports no internet; trying anyway"));
+    }
+    const Pulled p = pull_and_write(id);
+    if (!p.ok) {
+        log_line(QStringLiteral("open %1 unchanged: the server could not be asked; leaving it will not push").arg(id));
         ReadingController__setVolume(self, volume, bookmark);
         return;
     }
-    const Pulled p = pull_and_write(id);
+    if (p.unanswered) {
+        log_line(QStringLiteral("open %1 unchanged: the position needs an answer (confirm); leaving it will not push").arg(id));
+        ReadingController__setVolume(self, volume, bookmark);
+        return;
+    }
     if (!p.found) {
-        // Nothing to take (or the server could not be asked: then still not
-        // in line, see pull_and_write's log line).
+        // The server holds nothing newer: the device is in line with it.
+        g_not_synced.clear();
         ReadingController__setVolume(self, volume, bookmark);
         return;
     }
