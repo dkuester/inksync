@@ -3,7 +3,8 @@
 //!
 //! One `key = value` per line; empty lines and lines starting with `#` or
 //! `;` are ignored. Keys: `server`, `user`, `password` or `key` (the MD5 of
-//! the password), and optionally `device` and `device_id`. The password is
+//! the password), and optionally `device`, `device_id` and `confirm`
+//! (`never`, `backwards` or `always`, default `backwards`). The password is
 //! only ever read from this file, never from the command line.
 
 use std::fmt;
@@ -13,6 +14,7 @@ use std::path::{Path, PathBuf};
 use md5::{Digest, Md5};
 
 use crate::kosync;
+use crate::sync::Confirm;
 
 #[derive(Debug)]
 pub enum Error {
@@ -47,6 +49,8 @@ pub struct Config {
   pub device: Option<String>,
   /// Defaults to a value derived from the device name.
   pub device_id: Option<String>,
+  /// When to ask before overwriting a position.
+  pub confirm: Confirm,
 }
 
 impl Config {
@@ -73,8 +77,8 @@ impl Config {
   /// `path` is only used in error messages.
   pub fn parse(path: &Path, text: &str) -> Result<Self, Error> {
     let syntax = |line, e: String| Error::Syntax(path.to_path_buf(), line, e);
-    let (mut server, mut user, mut password, mut key, mut device, mut device_id) =
-      (None, None, None, None, None, None);
+    let (mut server, mut user, mut password, mut key, mut device, mut device_id, mut confirm) =
+      (None, None, None, None, None, None, None);
     for (n, line) in text.lines().enumerate() {
       let line = line.trim();
       if line.is_empty() || line.starts_with('#') || line.starts_with(';') {
@@ -91,6 +95,7 @@ impl Config {
         "key" => &mut key,
         "device" => &mut device,
         "device_id" => &mut device_id,
+        "confirm" => &mut confirm,
         other => return Err(syntax(n + 1, format!("unknown key `{other}`"))),
       };
       *slot = value;
@@ -113,12 +118,22 @@ impl Config {
       }
       (None, None) => return Err(missing("password")),
     };
+    let confirm = match confirm {
+      None => Confirm::default(),
+      Some(value) => value.parse().map_err(|()| {
+        Error::Invalid(
+          path.to_path_buf(),
+          "`confirm` must be `never`, `backwards` or `always`",
+        )
+      })?,
+    };
     Ok(Config {
       server: server.ok_or_else(|| missing("server"))?,
       user: user.ok_or_else(|| missing("user"))?,
       key,
       device,
       device_id,
+      confirm,
     })
   }
 
@@ -180,6 +195,19 @@ mod tests {
     assert_eq!(c.user, "alice");
     assert_eq!(c.key, "5ebe2294ecd0e0f08eab7690d2a6ee69");
     assert_eq!(c.device, None);
+    assert_eq!(c.confirm, Confirm::Backwards);
+  }
+
+  #[test]
+  fn confirm_setting() {
+    let c = parse("server=s\nuser=u\npassword=p\nconfirm = always").unwrap();
+    assert_eq!(c.confirm, Confirm::Always);
+    let c = parse("server=s\nuser=u\npassword=p\nconfirm=never").unwrap();
+    assert_eq!(c.confirm, Confirm::Never);
+    let e = parse("server=s\nuser=u\npassword=p\nconfirm=sometimes")
+      .unwrap_err()
+      .to_string();
+    assert!(e.contains("`confirm` must be"), "{e}");
   }
 
   #[test]

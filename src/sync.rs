@@ -1,10 +1,22 @@
 //! The conflict rule between the device and the server: the newest position
-//! wins, and nothing moves backwards in time without being asked to.
+//! wins, and, by default, nothing moves backwards in the book without being
+//! asked to.
 //!
 //! The device side is the stored position with `DateLastRead`; the server
 //! side is the stored progress with the time the server stored it.
-//! `ReadStatus` and `___PercentRead` are not compared: jumping to the last
-//! page marks a book finished at 100 % although the reader is elsewhere.
+//! `ReadStatus` is not compared: jumping to the last page marks a book
+//! finished although the reader is elsewhere.
+//!
+//! Which side is newer comes from the timestamps; whether a move goes
+//! backwards comes from the position in the book (spine index, then
+//! percentage), never from the timestamps. Nickel sets `DateLastRead` as
+//! soon as a book is opened, so after merely opening a book on the device
+//! the device looks newer than a position read further on elsewhere.
+
+use std::cmp::Ordering;
+use std::fmt;
+use std::io::{self, BufRead, Write};
+use std::str::FromStr;
 
 use crate::kosync::Progress;
 
@@ -41,6 +53,152 @@ pub fn compare(local: &Local, server: Option<&Progress>) -> Compare {
   match local.last_read {
     Some(read) if read >= server.timestamp => Compare::DeviceNewer,
     _ => Compare::ServerNewer,
+  }
+}
+
+/// When to ask before one side overwrites the other (`confirm` in the
+/// configuration).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Confirm {
+  /// Never ask: the newest position wins.
+  Never,
+  /// Ask when the position that would be overwritten lies further on in the
+  /// book than the new one.
+  #[default]
+  Backwards,
+  /// Ask whenever the two positions differ.
+  Always,
+}
+
+impl FromStr for Confirm {
+  type Err = ();
+
+  fn from_str(s: &str) -> Result<Self, ()> {
+    match s {
+      "never" => Ok(Confirm::Never),
+      "backwards" => Ok(Confirm::Backwards),
+      "always" => Ok(Confirm::Always),
+      _ => Err(()),
+    }
+  }
+}
+
+impl fmt::Display for Confirm {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.write_str(match self {
+      Confirm::Never => "never",
+      Confirm::Backwards => "backwards",
+      Confirm::Always => "always",
+    })
+  }
+}
+
+/// Which side a command overwrites: `push` the server, `pull` the device.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Direction {
+  Push,
+  Pull,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Decision {
+  /// Both hold the same XPointer.
+  InSync,
+  /// Overwrite the other side.
+  Apply,
+  /// Leave the other side alone: it is newer.
+  Keep,
+  /// Ask first. Without an answer nothing is overwritten.
+  Ask {
+    /// The new position lies before the one it would overwrite.
+    backwards: bool,
+    /// The new position is also the newer one.
+    newer: bool,
+  },
+}
+
+/// What `direction` should do with a book both sides hold.
+pub fn decide(
+  direction: Direction,
+  local: &Local,
+  server: &Progress,
+  confirm: Confirm,
+) -> Decision {
+  let newer = match (compare(local, Some(server)), direction) {
+    (Compare::Same, _) => return Decision::InSync,
+    (Compare::DeviceNewer, Direction::Push) | (Compare::ServerNewer, Direction::Pull) => true,
+    _ => false,
+  };
+  let device = order_in_book(
+    &local.xpointer,
+    local.percentage,
+    &server.progress,
+    server.percentage,
+  );
+  let backwards = match direction {
+    Direction::Push => device == Ordering::Less,
+    Direction::Pull => device == Ordering::Greater,
+  };
+  match confirm {
+    Confirm::Always => Decision::Ask { backwards, newer },
+    Confirm::Backwards if newer && backwards => Decision::Ask { backwards, newer },
+    _ if newer => Decision::Apply,
+    _ => Decision::Keep,
+  }
+}
+
+/// Where position `a` lies in the book relative to `b`: by spine index
+/// (`DocFragment[n]`) where both XPointers have one, then by percentage.
+pub fn order_in_book(a: &str, a_percentage: f64, b: &str, b_percentage: f64) -> Ordering {
+  if let (Some(a), Some(b)) = (doc_fragment(a), doc_fragment(b)) {
+    if a != b {
+      return a.cmp(&b);
+    }
+  }
+  // Nickel stores whole percents; a hair's difference is no difference.
+  if (a_percentage - b_percentage).abs() < 1e-6 {
+    Ordering::Equal
+  } else if a_percentage < b_percentage {
+    Ordering::Less
+  } else {
+    Ordering::Greater
+  }
+}
+
+/// `n` of `/body[1]/DocFragment[n]/…`.
+fn doc_fragment(xpointer: &str) -> Option<usize> {
+  let rest = &xpointer[xpointer.find("DocFragment[")? + "DocFragment[".len()..];
+  rest[..rest.find(']')?].parse().ok()
+}
+
+/// The answer to "device or server?".
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Side {
+  Device,
+  Server,
+}
+
+/// Asks on `output` which position should count and reads the answer from
+/// `input`: `d` or `device`, `s` or `server`. An empty line or the end of
+/// the input is no answer (`None`); anything else is asked again.
+pub fn ask(input: &mut impl BufRead, output: &mut impl Write) -> io::Result<Option<Side>> {
+  loop {
+    write!(
+      output,
+      "            Keep which position, [d]evice or [s]erver? (Enter skips) "
+    )?;
+    output.flush()?;
+    let mut line = String::new();
+    if input.read_line(&mut line)? == 0 {
+      writeln!(output)?;
+      return Ok(None);
+    }
+    match line.trim().to_ascii_lowercase().as_str() {
+      "" => return Ok(None),
+      "d" | "device" => return Ok(Some(Side::Device)),
+      "s" | "server" => return Ok(Some(Side::Server)),
+      _ => {}
+    }
   }
 }
 
@@ -155,5 +313,147 @@ mod tests {
       compare(&undated, Some(&server("/body[1]/DocFragment[9]", 1))),
       Compare::ServerNewer
     );
+  }
+
+  #[test]
+  fn order_by_spine_then_percentage() {
+    let x = |n: usize| format!("/body[1]/DocFragment[{n}]/body[1]/p[3]/text()[1].5");
+    assert_eq!(order_in_book(&x(2), 0.9, &x(10), 0.1), Ordering::Less);
+    assert_eq!(order_in_book(&x(10), 0.1, &x(2), 0.9), Ordering::Greater);
+    assert_eq!(order_in_book(&x(5), 0.3, &x(5), 0.4), Ordering::Less);
+    assert_eq!(order_in_book(&x(5), 0.4, &x(5), 0.4), Ordering::Equal);
+    // Without a DocFragment only the percentage counts.
+    assert_eq!(
+      order_in_book("#_doc_fragment", 0.5, &x(2), 0.2),
+      Ordering::Greater
+    );
+    assert_eq!(doc_fragment(&x(82)), Some(82));
+    assert_eq!(doc_fragment("/body[1]/DocFragment[x]"), None);
+  }
+
+  /// The device at chapter 10, 50 %, last read at 1000.
+  fn device() -> Local {
+    Local {
+      xpointer: "/body[1]/DocFragment[10]/body[1]/p[1]/text()[1].0".into(),
+      percentage: 0.5,
+      last_read: Some(1000),
+    }
+  }
+
+  fn sp(n: usize, timestamp: i64) -> Progress {
+    let mut p = server(
+      &format!("/body[1]/DocFragment[{n}]/body[1]/p[1]/text()[1].0"),
+      timestamp,
+    );
+    p.percentage = n as f64 / 20.0;
+    p
+  }
+
+  #[test]
+  fn confirm_never_is_newest_wins() {
+    use Decision::*;
+    use Direction::*;
+    let d = device();
+    let c = Confirm::Never;
+    // Server older: push sends, also backwards; pull keeps.
+    assert_eq!(decide(Push, &d, &sp(5, 999), c), Apply);
+    assert_eq!(decide(Push, &d, &sp(15, 999), c), Apply);
+    assert_eq!(decide(Pull, &d, &sp(15, 999), c), Keep);
+    // Server newer: pull moves, also backwards; push keeps.
+    assert_eq!(decide(Pull, &d, &sp(5, 1001), c), Apply);
+    assert_eq!(decide(Pull, &d, &sp(15, 1001), c), Apply);
+    assert_eq!(decide(Push, &d, &sp(5, 1001), c), Keep);
+    assert_eq!(decide(Push, &d, &server(&d.xpointer, 1), c), InSync);
+  }
+
+  #[test]
+  fn confirm_backwards_asks_before_going_back() {
+    use Decision::*;
+    use Direction::*;
+    let d = device();
+    let c = Confirm::default();
+    assert_eq!(c, Confirm::Backwards);
+    // The device was only opened after KOReader got further: push asks.
+    assert_eq!(
+      decide(Push, &d, &sp(15, 999), c),
+      Ask {
+        backwards: true,
+        newer: true
+      }
+    );
+    assert_eq!(decide(Push, &d, &sp(5, 999), c), Apply);
+    assert_eq!(
+      decide(Pull, &d, &sp(5, 1001), c),
+      Ask {
+        backwards: true,
+        newer: true
+      }
+    );
+    assert_eq!(decide(Pull, &d, &sp(15, 1001), c), Apply);
+    // The other side is newer: nothing to ask, it is kept.
+    assert_eq!(decide(Push, &d, &sp(15, 1001), c), Keep);
+    assert_eq!(decide(Pull, &d, &sp(5, 999), c), Keep);
+    // Same chapter: the percentage decides.
+    let mut same = sp(10, 999);
+    same.progress.push('7');
+    same.percentage = 0.6;
+    assert!(matches!(decide(Push, &d, &same, c), Ask { .. }));
+    same.percentage = 0.4;
+    assert_eq!(decide(Push, &d, &same, c), Apply);
+  }
+
+  #[test]
+  fn confirm_always_asks_on_every_difference() {
+    use Decision::*;
+    use Direction::*;
+    let d = device();
+    let c = Confirm::Always;
+    assert_eq!(
+      decide(Push, &d, &sp(5, 999), c),
+      Ask {
+        backwards: false,
+        newer: true
+      }
+    );
+    assert_eq!(
+      decide(Push, &d, &sp(15, 1001), c),
+      Ask {
+        backwards: true,
+        newer: false
+      }
+    );
+    assert_eq!(
+      decide(Pull, &d, &sp(15, 999), c),
+      Ask {
+        backwards: false,
+        newer: false
+      }
+    );
+    assert_eq!(decide(Pull, &d, &server(&d.xpointer, 1), c), InSync);
+  }
+
+  #[test]
+  fn confirm_from_config_text() {
+    assert_eq!("never".parse(), Ok(Confirm::Never));
+    assert_eq!("backwards".parse(), Ok(Confirm::Backwards));
+    assert_eq!("always".parse(), Ok(Confirm::Always));
+    assert_eq!("Always".parse::<Confirm>(), Err(()));
+    assert_eq!(Confirm::Backwards.to_string(), "backwards");
+  }
+
+  #[test]
+  fn ask_reads_device_or_server() {
+    let answer = |text: &str| {
+      let mut out = Vec::new();
+      let side = ask(&mut text.as_bytes(), &mut out).unwrap();
+      (side, String::from_utf8(out).unwrap())
+    };
+    assert_eq!(answer("d\n").0, Some(Side::Device));
+    assert_eq!(answer("Server\n").0, Some(Side::Server));
+    assert_eq!(answer("\n").0, None);
+    assert_eq!(answer("").0, None);
+    let (side, out) = answer("x\ns\n");
+    assert_eq!(side, Some(Side::Server));
+    assert_eq!(out.matches("[d]evice or [s]erver?").count(), 2);
   }
 }

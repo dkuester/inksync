@@ -12,6 +12,13 @@ Wer: **du** = braucht dich (Gerät, Entscheidung, Zugang) · **ich** = kann ich 
 
 Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
 
+**Reihenfolge der Geräte:** Erst wird alles, was mit dem **Tolino Shine Color
+(5.18)** allein geht, umgesetzt und am Gerät getestet: P3, K4 rückwärts für
+normale EPUBs, P2 am Tolino, N3, N4. Danach kommt der **Kobo** (Clara BW,
+4.46) in einem eigenen Durchgang: P1-Durchlauf mit allen Geräten,
+K4 rückwärts für kepub (`#kobo.N.M`), P2 am Kobo, N1, N2. So geraten die
+beiden Geräte beim Testen nicht durcheinander.
+
 ## Grundlagen
 
 - [x] **G1 Lizenz** · PR #5
@@ -161,14 +168,21 @@ Erledigte Punkte wandern in der Roadmap nach „Recently completed“.
   - [ ] **du:** Gerät auswerfen und prüfen, ob Nickel die neue Position
     übernimmt oder überschreibt.
 
-- [ ] **P3 Rückfrage bei abweichender Position (einstellbar)**
-  - [ ] **ich:** Wenn sich Position auf dem Gerät und auf dem Server
-    unterscheiden, optional fragen, welche gelten soll (Gerät oder Server),
-    statt still „die neueste gewinnt“ anzuwenden. In der Konfiguration
-    einstellbar, z. B. `confirm = never | backwards | always` (nie, nur
-    wenn es rückwärts ginge, immer). Gilt für `push` und `pull`; auf dem
-    Rechner als Frage im Terminal, später im Plugin als Dialog (O3/O4).
-  - [ ] **du:** Standardwert festlegen.
+- [x] **P3 Rückfrage bei abweichender Position (einstellbar)** · PR #18
+  - [x] **ich:** `confirm = never | backwards | always` in der Konfiguration
+    (`sync::decide`). „Rückwärts“: Die Position, die überschrieben würde,
+    liegt weiter hinten im Buch (Spine-Index, dann Prozent), nicht nach
+    Zeitstempel, weil Nickel `DateLastRead` schon beim Öffnen setzt. Gilt
+    für `push` und `pull`; im Terminal Frage „[d]evice or [s]erver?“, ohne
+    Terminal wird nichts überschrieben und das Buch gemeldet; `--force`
+    (jetzt auch bei `pull`) überschreibt ohne Frage. Später im Plugin als
+    Dialog (O3/O4).
+  - [x] **du:** Standardwert festgelegt: `backwards`.
+  - [x] **du:** Am Tolino geprüft (2026-10-24, Book R): KOReader bei 45 %
+    in Kapitel 2 synchronisiert (10:21:06), Buch auf dem Tolino nur
+    geöffnet (`DateLastRead` 10:21:28, Position 27 % in Kapitel 1).
+    `status` meldet „push asks first“, `push` fragt, Antwort `s` behält die
+    Server-Position; mit `< /dev/null` wird nichts gesendet.
 
 ## Plugin
 

@@ -90,8 +90,17 @@ for the device. It owns all logic:
   EPUB itself (OPF spine, chapter files, Kobo span IDs, Adobe point paths).
 - **KOSync client**: `users/auth`, `GET /syncs/progress/:document`,
   `PUT /syncs/progress`.
-- **Conflict rule**: newest timestamp wins; never move a position backwards
-  without user confirmation.
+- **Conflict rule**: the newer side wins (device `DateLastRead` against the
+  server's timestamp), with a confirmation set by `confirm` in the
+  configuration: `never`, `backwards` (default: ask when the position that
+  would be overwritten lies further on in the book than the new one) or
+  `always` (ask whenever the positions differ). "Backwards" compares the
+  place in the book, spine index (`DocFragment[n]`) first, then the
+  percentage, never the timestamps: Nickel sets `DateLastRead` when a book
+  is merely opened, so newest-wins alone would let a device that was only
+  opened overwrite a position read further on in KOReader. In a terminal
+  the CLI asks "device or server?"; without one (the plugin, later) it
+  overwrites nothing and reports the book. `--force` skips the question.
 
 Desktop use: `nickelinksync push|pull|status --device /Volumes/KOBOeReader`.
 On-device use: the same binary, called by the hook.

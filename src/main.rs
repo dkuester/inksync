@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -9,7 +10,9 @@ use nickelinksync::epub::Epub;
 use nickelinksync::hash::partial_md5;
 use nickelinksync::kosync::{self, Client, Progress, Update};
 use nickelinksync::position::{to_xpointer, PointFlavor, Position, XPointer};
-use nickelinksync::sync::{compare, format_timestamp, parse_timestamp, Compare, Local};
+use nickelinksync::sync::{
+  self, decide, format_timestamp, parse_timestamp, Confirm, Decision, Direction, Local, Side,
+};
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
@@ -30,7 +33,7 @@ enum Command {
   Push {
     #[command(flatten)]
     target: Target,
-    /// Also send positions that are older than the server's
+    /// Send the device position without asking, also if the server's is newer
     #[arg(long)]
     force: bool,
     /// Only show what would be sent
@@ -38,7 +41,13 @@ enum Command {
     dry_run: bool,
   },
   /// Show what a newer position on the KOSync server would change (dry run)
-  Pull(Target),
+  Pull {
+    #[command(flatten)]
+    target: Target,
+    /// Take the server position without asking, also if the device's is newer
+    #[arg(long)]
+    force: bool,
+  },
 }
 
 #[derive(Args)]
@@ -63,7 +72,7 @@ fn main() -> ExitCode {
       force,
       dry_run,
     } => push(&target, force, dry_run),
-    Command::Pull(target) => pull(&target),
+    Command::Pull { target, force } => pull(&target, force),
   };
   match result {
     Ok(true) => ExitCode::SUCCESS,
@@ -287,12 +296,10 @@ fn status(target: &Target) -> Result<bool> {
           None => println!("  server    (nothing stored)"),
         }
         if let Ok((local, _)) = &local {
-          let sync = match compare(local, remote.as_ref()) {
-            Compare::NotOnServer | Compare::DeviceNewer => "device is newer: push sends it",
-            Compare::Same => "in sync",
-            Compare::ServerNewer => "server is newer: pull would move the device",
-          };
-          println!("  sync      {sync}");
+          println!(
+            "  sync      {}",
+            sync_note(local, remote.as_ref(), server.config.confirm)
+          );
         }
       }
       Err(e) => {
@@ -302,6 +309,98 @@ fn status(target: &Target) -> Result<bool> {
     }
   }
   Ok(true)
+}
+
+/// What `push` and `pull` would do with a book, for `status`.
+fn sync_note(local: &Local, remote: Option<&Progress>, confirm: Confirm) -> String {
+  let Some(remote) = remote else {
+    return "device is newer: push sends it".into();
+  };
+  let push = decide(Direction::Push, local, remote, confirm);
+  let pull = decide(Direction::Pull, local, remote, confirm);
+  // Otherwise one of them asks: the one moving to the newer position.
+  let (newer, other, command, ask) = match (push, pull) {
+    (Decision::InSync, _) => return "in sync".into(),
+    (Decision::Apply, _) => return "device is newer: push sends it".into(),
+    (_, Decision::Apply) => return "server is newer: pull would move the device".into(),
+    (Decision::Ask { newer: true, .. }, _) => ("device", "server", "push", push),
+    _ => ("server", "device", "pull", pull),
+  };
+  if matches!(
+    ask,
+    Decision::Ask {
+      backwards: true,
+      ..
+    }
+  ) {
+    format!("{newer} is newer, but behind the {other}: {command} asks first")
+  } else {
+    format!("{newer} is newer: {command} asks first (confirm = {confirm})")
+  }
+}
+
+/// Shows why a book needs an answer and gets one: from the terminal, or,
+/// in a dry run or without a terminal, none. `true` if `direction` should
+/// overwrite the other side.
+fn confirm(
+  direction: Direction,
+  local: &Local,
+  remote: &Progress,
+  (backwards, confirm): (bool, Confirm),
+  dry_run: bool,
+  unanswered: &mut usize,
+) -> Result<bool> {
+  match local.last_read {
+    Some(t) => println!(
+      "  device    {} ({}), last read {}",
+      local.xpointer,
+      percent(local.percentage),
+      format_timestamp(t)
+    ),
+    None => println!(
+      "  device    {} ({})",
+      local.xpointer,
+      percent(local.percentage)
+    ),
+  }
+  println!("  server    {}", describe(remote));
+  let (new, old) = match direction {
+    Direction::Push => ("device", "server"),
+    Direction::Pull => ("server", "device"),
+  };
+  if backwards {
+    println!("  ask       the {new} position lies before the {old}'s (confirm = {confirm})");
+  } else {
+    println!("  ask       the positions differ (confirm = {confirm})");
+  }
+  if dry_run {
+    println!("            would ask first");
+    return Ok(false);
+  }
+  if !std::io::stdin().is_terminal() {
+    println!("  skipped   needs an answer, but there is no terminal; --force overwrites anyway");
+    *unanswered += 1;
+    return Ok(false);
+  }
+  let side = sync::ask(&mut std::io::stdin().lock(), &mut std::io::stdout())?;
+  let apply = match (side, direction) {
+    (None, _) => {
+      println!("  skipped   no answer");
+      return Ok(false);
+    }
+    (Some(Side::Device), Direction::Push) | (Some(Side::Server), Direction::Pull) => true,
+    (Some(_), _) => false,
+  };
+  if !apply {
+    println!("  kept      the {old} position");
+  }
+  Ok(apply)
+}
+
+fn unanswered_note(unanswered: usize) {
+  if unanswered > 0 {
+    println!("\n{unanswered} book(s) need an answer: run again in a terminal, or with --force.");
+  }
 }
 
 fn push(target: &Target, force: bool, dry_run: bool) -> Result<bool> {
@@ -316,6 +415,8 @@ fn push(target: &Target, force: bool, dry_run: bool) -> Result<bool> {
     "Server {} as {}, device \"{device}\"",
     server.config.server, server.config.user
   );
+  let confirm_setting = server.config.confirm;
+  let mut unanswered = 0;
   let mut ok = true;
   for book in &session.books {
     heading(book);
@@ -335,20 +436,33 @@ fn push(target: &Target, force: bool, dry_run: bool) -> Result<bool> {
         continue;
       }
     };
-    match compare(&local, remote.as_ref()) {
-      Compare::Same => {
-        println!("  in sync   {}", describe(remote.as_ref().unwrap()));
-        continue;
+    if let Some(remote) = &remote {
+      match decide(Direction::Push, &local, remote, confirm_setting) {
+        Decision::InSync => {
+          println!("  in sync   {}", describe(remote));
+          continue;
+        }
+        Decision::Apply => {}
+        _ if force => {}
+        Decision::Keep => {
+          println!("  skipped   server is newer: {}", describe(remote));
+          println!("            --force sends the device position anyway");
+          continue;
+        }
+        Decision::Ask { backwards, .. } => {
+          let answer = (backwards, confirm_setting);
+          if !confirm(
+            Direction::Push,
+            &local,
+            remote,
+            answer,
+            dry_run,
+            &mut unanswered,
+          )? {
+            continue;
+          }
+        }
       }
-      Compare::ServerNewer if !force => {
-        println!(
-          "  skipped   server is newer: {}",
-          describe(remote.as_ref().unwrap())
-        );
-        println!("            --force sends the device position anyway");
-        continue;
-      }
-      _ => {}
     }
     let update = Update {
       document: hash,
@@ -379,16 +493,19 @@ fn push(target: &Target, force: bool, dry_run: bool) -> Result<bool> {
       }
     }
   }
+  unanswered_note(unanswered);
   if dry_run {
     println!("\nDry run: nothing was sent.");
   }
   Ok(ok)
 }
 
-fn pull(target: &Target) -> Result<bool> {
+fn pull(target: &Target, force: bool) -> Result<bool> {
   let session = Session::open(target)?;
   let server = Server::require(target.config.as_deref())?;
   println!("Server {} as {}", server.config.server, server.config.user);
+  let confirm_setting = server.config.confirm;
+  let mut unanswered = 0;
   let mut ok = true;
   for book in &session.books {
     heading(book);
@@ -414,30 +531,45 @@ fn pull(target: &Target) -> Result<bool> {
         continue;
       }
     };
-    let local = session.local(book);
-    let comparison = match &local {
-      Ok((local, _)) => compare(local, Some(&remote)),
-      // Nothing on the device to keep.
-      Err(_) => Compare::ServerNewer,
+    // Without a device position there is nothing on the device to keep.
+    let decision = match session.local(book) {
+      Ok((local, _)) => (
+        decide(Direction::Pull, &local, &remote, confirm_setting),
+        Some(local),
+      ),
+      Err(_) => (Decision::Apply, None),
     };
-    match comparison {
-      Compare::Same => println!("  in sync   {}", describe(&remote)),
-      Compare::DeviceNewer | Compare::NotOnServer => {
-        println!("  keep      device is newer than {}", describe(&remote))
+    let apply = match decision {
+      (Decision::InSync, _) => {
+        println!("  in sync   {}", describe(&remote));
+        false
       }
-      Compare::ServerNewer => {
-        println!("  would move to {}", describe(&remote));
-        if let Ok((local, _)) = &local {
-          if remote.percentage < local.percentage {
-            println!(
-              "            backwards from {}: would ask first",
-              percent(local.percentage)
-            );
-          }
-        }
+      (Decision::Apply, _) => true,
+      (_, Some(_)) if force => true,
+      (Decision::Keep, _) => {
+        println!("  keep      device is newer than {}", describe(&remote));
+        println!("            --force takes the server position anyway");
+        false
       }
+      (Decision::Ask { backwards, .. }, Some(local)) => {
+        // A dry run until write-back exists: never asks.
+        let answer = (backwards, confirm_setting);
+        confirm(
+          Direction::Pull,
+          &local,
+          &remote,
+          answer,
+          true,
+          &mut unanswered,
+        )?
+      }
+      (Decision::Ask { .. }, None) => unreachable!("asks only with a device position"),
+    };
+    if apply {
+      println!("  would move to {}", describe(&remote));
     }
   }
+  unanswered_note(unanswered);
   println!("\nDry run: nothing was written to the device (write-back is not implemented yet).");
   Ok(ok)
 }
