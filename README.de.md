@@ -35,8 +35,8 @@ nickelinksync pull --device /Volumes/KOBOeReader
 | Befehl | Was er tut |
 |---|---|
 | `status` | Listet die seitengeladenen Bücher mit Prüfsumme, gespeicherter Position, KOReader-XPointer und, falls eingerichtet, der Position auf dem Server. |
-| `push` | Überträgt die Position jedes Buchs zum Server. Eine Position, die der Server erst nach dem letzten Lesen auf dem Gerät bekommen hat, wird nie überschrieben; `--force` überträgt trotzdem, `--dry-run` zeigt nur, was gesendet würde. |
-| `pull` | Nur Probelauf: zeigt, für welche Bücher der Server eine neuere Position hat. Das Zurückschreiben aufs Gerät fehlt noch. |
+| `push` | Überträgt die Position jedes Buchs zum Server. Eine Position, die der Server erst nach dem letzten Lesen auf dem Gerät bekommen hat, wird nie überschrieben; außerdem fragt `push` standardmäßig nach, bevor es den Server an eine frühere Stelle im Buch zurücksetzt (siehe `confirm` unten). `--force` überträgt ohne Rückfrage, `--dry-run` zeigt nur, was gesendet würde. |
+| `pull` | Nur Probelauf: zeigt, für welche Bücher der Server eine neuere Position hat und wo es nachfragen würde; `--force` zeigt das Ergebnis ohne Rückfrage. Das Zurückschreiben aufs Gerät fehlt noch. |
 
 Alle drei nehmen `--book <Text>` (nur Bücher, deren Titel oder Dateipfad den
 Text enthält) und `--config <Datei>` für eine andere Konfigurationsdatei. Das
@@ -49,7 +49,23 @@ es sie gibt. Standardort: `~/.config/nickelinksync/config.ini` (oder
 `$XDG_CONFIG_HOME/nickelinksync/config.ini`, oder der Pfad in
 `$NICKELINKSYNC_CONFIG`). Das Format steht im [englischen README](README.md#configuration):
 `server`, `user`, `password` (oder `key` = MD5 des Passworts), optional
-`device` und `device_id`.
+`device`, `device_id` und `confirm`.
+
+`confirm` legt fest, wann `push` und `pull` „Gerät oder Server?“ fragen,
+statt die neuere Position gewinnen zu lassen:
+
+| Wert | Fragt |
+|---|---|
+| `never` | nie: die neuere Position gewinnt |
+| `backwards` (Standard) | wenn die Position, die überschrieben würde, weiter hinten im Buch liegt als die neue |
+| `always` | immer, wenn sich die beiden Positionen unterscheiden |
+
+„Weiter hinten“ entscheidet die Stelle im Buch (Kapitel, dann Prozent),
+nicht die Uhrzeit: Nickel vermerkt ein Buch schon beim Öffnen als gelesen,
+ein auf dem E-Reader nur geöffnetes Buch wirkt also neuer als die Seite, die
+du in KOReader erreicht hast. Im Terminal antwortest du mit `d` (Gerät) oder
+`s` (Server), Enter überspringt das Buch. Ohne Terminal wird nichts
+überschrieben und das Buch gemeldet. `--force` überschreibt ohne Rückfrage.
 
 Das Passwort steht nur in dieser Datei, nie in der Befehlszeile. Halte die
 Datei privat (`chmod 600`); NickelInkSync warnt, wenn andere sie lesen

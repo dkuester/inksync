@@ -56,6 +56,10 @@ L = a week or more, including verification.
 - [x] First real push against kosync.eu from the Tolino Shine Color: KOReader
       opens the long probe book Book R on the page with the pushed position
       (mid-chapter), so the forward translation holds in practice
+- [x] Confirmation setting `confirm = never | backwards | always` (default
+      `backwards`) for `push` and `pull`: "backwards" is judged by the place
+      in the book, not by time, because Nickel sets `DateLastRead` on
+      opening; terminal prompt, nothing overwritten without a terminal
 
 ## Quick wins
 
@@ -65,6 +69,11 @@ L = a week or more, including verification.
   BookOrbit's position converter is ever ported, the project has to be AGPL-3.0.
 
 ## High priority
+
+Order: everything the Tolino Shine Color (5.18) can test on its own comes
+first (reverse translation for plain EPUB, USB write-back, Qt6 symbols and
+plugin); the Kobo (4.46: kepub reverse translation, write-back, Qt5 plugin)
+follows in a pass of its own.
 
 - **Read-only device database layer** (S–M): reading the books and their
   positions is done (`status --device`); still to do: resolve
@@ -77,11 +86,6 @@ L = a week or more, including verification.
   Kobo span or Adobe point, for `pull`. The forward direction is done (see
   "Recently completed"); a computed XPointer opens at the right place in
   KOReader (checked with Book R).
-- **Ask which position wins, configurable** (S–M): when the device and the
-  server positions differ, optionally ask whether to keep the device or the
-  server position instead of applying "newest wins" silently. A setting such
-  as `confirm = never | backwards | always`; a terminal prompt on the
-  desktop, a dialog in the plugin later.
 - **USB write-back** (M): write a pulled position into the database only
   while the device is mounted, with a backup copy first. Blocker: confirm that
   Nickel picks the new position up after eject instead of overwriting it.
