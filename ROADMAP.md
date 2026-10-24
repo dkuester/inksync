@@ -121,7 +121,8 @@ its own.
   settings dialog with the password in the system keychain; configuration
   and mappings shared with the CLI; German and English; side-by-side device
   view, restoring the database backup, sync history, release notice.
-  Open: whether kepubify is bundled or must be installed.
+  kepubify is bundled (one binary per platform, a pinned and
+  checksum-verified release, with its MIT notice).
 
 - **Read-only device database layer** (S–M): reading the books and their
   positions is done (`status --device`); still to do: resolve

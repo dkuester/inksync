@@ -105,8 +105,12 @@ dürfen jederzeit dazwischengeschoben werden.
     - **Außerdem:** Geräteansicht nebeneinander (O5), Sicherungskopie der
       Gerätedatenbank per Knopf zurückspielen, Verlauf der Syncs,
       Hinweis auf ein neues Release (keine Selbstaktualisierung).
-  - [ ] **du:** Klären, ob kepubify mitgeliefert wird (Binary je Plattform,
-    MIT-Hinweis nötig) oder installiert sein muss.
+  - [x] **du:** kepubify wird **mitgeliefert**: ein Binary je Plattform
+    (macOS, Windows, Linux im AppImage), mit dem MIT-Lizenzhinweis von
+    kepubify in der App und im Paket.
+  - [ ] **ich:** kepubify-Binaries in der CI laden (feste Version, Prüfsumme
+    gegen das Release prüfen) und ins Paket legen; Lizenzhinweis in
+    „Über“ und neben dem Binary.
   - [ ] **ich:** GUI mit **egui/eframe** (reines Rust, MIT/Apache, ohne
     WebView, ein Code für alle drei Systeme).
   - [ ] **ich:** macOS: `.app`-Bundle als `.dmg`, aus der CI (macOS-Runner);
