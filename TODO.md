@@ -244,7 +244,10 @@ beiden Geräte beim Testen nicht durcheinander.
 ## Optional (später)
 
 - [ ] **O1 Manuelle Zuordnung** von Büchern (kepub ↔ EPUB), Testfall Heat 2.
-  Vorbild: BookOrbit, nur als Konzept (AGPL-3.0).
+  Vorbild: BookOrbit, nur als Konzept (AGPL-3.0). Blockiert auch den
+  Kindle-Sync (L1): Nichts im KFX führt zur EPUB-Prüfsumme; Kandidaten für
+  den Schlüssel sind `content_id` (32 Hex-Ziffern, auch im Dateinamen),
+  `title` (= Dateiname beim Senden) und `author`.
 - [x] **O2 Normales EPUB auf Kobo 4.x** · **du:** ein normales EPUB auf den Clara
   geladen und geöffnet. Ergebnis: wie auf dem Tolino `#point(...)`,
   Kapitelzeilen sind ToC-Einträge (`SCOPE.md`).
@@ -285,8 +288,10 @@ beiden Geräte beim Testen nicht durcheinander.
     Book P und Q und die Book-R-Positionen ergeben KOReaders XPointer;
     nur q5w04 (CDATA) ist nicht exakt (Text weicht ab, gefunden über den
     Text danach).
-  - [ ] **ich:** Kindle in die CLI: `status --device` für einen gemounteten
-    Kindle (KFX + `.sdr` lesen, Position übersetzen), nur lesend
-    (braucht O1 für die Buchzuordnung KFX ↔ EPUB-Prüfsumme).
+  - [!] **ich:** Kindle in die CLI: `status --device` für einen gemounteten
+    Kindle (KFX + `.sdr` lesen, Position übersetzen), nur lesend.
+    Blockiert durch O1: ohne Buchzuordnung KFX ↔ EPUB-Prüfsumme kein Sync.
+    Der Leser und die Übersetzung liegen fertig in der Bibliothek
+    (`kindle::to_xpointer`).
   - [ ] **du:** Prüfen, ob der Kindle eine geänderte `.yjf` übernimmt
     (Flugmodus, damit Amazons Sync nicht dazwischenfunkt).

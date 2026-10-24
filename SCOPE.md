@@ -320,6 +320,29 @@ section *n* is `DocFragment[n+1]`, and the blocks of a section are the
 EPUB's block elements in order (Book R: `eid` 361 is `R2-99`, `p[99]` of
 `chapter2.xhtml`).
 
+**Layout details** (as read by `src/kfx.rs` and `src/krds.rs`; symbol
+numbers from the shared `YJ_symbols` table, book-local symbols such as
+section names stay numeric):
+
+| Entity / file | Layout |
+|---|---|
+| container | `CONT`, u16 version 2, u32 header length, u32 offset and length of the container info (Ion struct: `$413`/`$414` = entity index); index entries of 24 bytes: u32 entity id, u32 type, u64 offset (after the header), u64 length; each entity `ENTY`, u16 version, u32 header length, then Ion values |
+| `$145` content | `{$4: name, $146: [string, …]}`; a block points to one string with `$145: {$4: name, $403: index}` |
+| `$259` storyline | `{$176: name, $146: [{$155: eid, $145: text, $142: [{$143: offset, $144: length}], $146: nested}]}` |
+| `$260` section | `{$174: name, $141: [{$155: eid of the page template, $176: storyline}]}` |
+| `$538` document data | `$169: [{$170: [section, …]}]`, the reading order = spine order |
+| `$264` position map | per section the `eid`s it holds; `[first, count]` is a range (`[6, 8]` = 6 to 13) |
+| `$265` position ID map | per section `$184` first `pid`, `$144` number of positions |
+| `$609` section position IDs | runs as `[pid delta, eid]`, or a bare `pid delta` for the next `eid` (previous + 1); the last run, `eid` 0, is the section end. Block `eid` 6 of Book P starts at `pid` 48 + 12 |
+| `.yjf`, `.yjr` (KRDS) | magic `00 00 00 00 00 1A B1 26`, `long` version 1, `int` number of top-level objects; values typed by one byte (`00`/`07` byte, `01` int BE, `02` long BE, `03` string: flag 1 = absent, else u16 BE length + UTF-8, `04` double), objects `FE` + name … `FF`, nested |
+| `lpr` | byte 2, position, timestamp (ms); `fpr` the same position without a time |
+| `annotation.personal.highlight` | start, **end = last highlighted character** (inclusive), created, modified, `0\ufffc0`; inside `annotation.cache.object` → `saved.avl.interval.tree`, not in time order |
+
+The page template of a section has its own `eid` (one position at `pid`
+0 of the section, before the first block). The lost CDATA text looks like
+an HTML parser at work: `<![CDATA[` read as a bogus comment that ends at
+the first `>` (after `<q5w03`), leaving `]]>` as text.
+
 **Offsets** (highlights of the same words as on Kobo and Tolino, see the
 [test fixtures](tests/fixtures/README.md#kindle-kfx-via-send-to-kindle)):
 **code points** (`𝄞` = 1, a combining accent = 1) in the block's text
