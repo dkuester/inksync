@@ -83,7 +83,7 @@ jobs:
           file -b "$lib" | grep -q 'ELF 32-bit LSB shared object, ARM' || { echo "::error::Plugin is not a 32-bit ARM library"; exit 1; }
           grep -q '@Qt_6' plugin/nm.txt || { echo "::error::No Qt 6 symbols"; exit 1; }
           if grep -q '@Qt_5' plugin/nm.txt; then echo "::error::Qt 5 symbols in a Qt 6 build"; exit 1; fi
-          for h in _nh_ReadingController__setVolume _nh_ReadingView__leavingReadingExperience _nh_VolumeManager__getById; do
+          for h in _nh_ReadingController__setVolume _nh_ReadingView__leavingReadingExperience; do
             grep -qE " T $h\$" plugin/nm.txt || { echo "::error::$h not exported"; exit 1; }
           done
           test "$(tar -tzf plugin/Kobo.tgz)" = "imageformats/libnickelinksync.so" || { echo "::error::Unexpected Kobo.tgz layout"; exit 1; }

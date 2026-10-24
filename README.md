@@ -101,8 +101,9 @@ password = your password
 ## Plugin for the Tolino (experimental)
 
 On a Tolino with firmware 5.x, a NickelHook plugin syncs without a
-computer, over Wi-Fi: when you open a sideloaded book it takes a newer
-position from the server, when you leave the book it sends yours. It
+computer, over Wi-Fi: when you open a sideloaded book it fetches a newer
+position from the server in the background and jumps there, when you
+leave the book it sends yours. It
 calls the same `nickelinksync` program on the device and follows the same
 `confirm` rule; it cannot ask yet, so a position that needs an answer is
 left alone and noted in the log. On a Kobo the plugin stays inactive for
@@ -119,11 +120,11 @@ now.
    installs the plugin and restarts.
 
 The log is `.adds/NickelInkSync/NickelInkSync.log`. The plugin switches
-Wi-Fi on when it needs it; there is no need for the Tolino's own
-"Sync now" (that is the Tolino cloud). Opening a book waits at most about
-12 seconds for Wi-Fi and 15 seconds for the server, and opens unchanged
-without them; leaving a book never waits, the push follows when Wi-Fi is
-up (within 45 seconds).
+Wi-Fi on when it needs it, first without a dialog and after 15 seconds
+with the Tolino's Wi-Fi dialog; there is no need for the Tolino's own
+"Sync now" (that is the Tolino cloud). Opening and leaving a book never
+wait for the network: the book opens at the Tolino's position and jumps
+once the server's has arrived, the push follows when Wi-Fi is up.
 
 **Uninstall:** create an empty file `.adds/NickelInkSync/uninstall`, eject
 and power the Tolino off and on again (the file is only checked when the
