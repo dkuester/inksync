@@ -134,7 +134,6 @@ static QString (*ContentLocation__toString)(const ContentLocation *);
 static void (*Bookmark__dtor)(Bookmark *);
 
 // Optional: the jump after opening.
-static bool (*ReadingView__isBookOpened)(const ReadingView *);
 static bool (*ReadingView__goToBookmark)(ReadingView *, const Bookmark *);
 static void (*Bookmark__setStartLocation)(Bookmark *, const ContentLocation *);
 // static ContentLocation create(QString position, QString spinePath):
@@ -283,9 +282,12 @@ static void log_location(const QString &when)
 
 // Moves the open book `id` to `position` once Nickel has opened it, through
 // Nickel's own navigation; tries every kJumpPollMs, kJumpTries times.
-static void jump_when_open(const QString &id, const QByteArray &position, int tries = 0)
+// "Opened" means: the reading view is current and reports the same
+// location twice in a row. ReadingView::isBookOpened() is no use: it stayed
+// false for a plain EPUB on the Tolino while the book was open (device test).
+static void jump_when_open(const QString &id, const QByteArray &position, int tries = 0, const QString &last = QString())
 {
-    if (!ReadingView__isBookOpened || !ReadingView__goToBookmark || !Bookmark__setStartLocation
+    if (!ReadingView__goToBookmark || !Bookmark__setStartLocation
         || !ContentLocation__create || !ContentLocation__isValid || !ContentLocation__dtor
         || !ReadingView__bookmarkForCurrentLocation || !Bookmark__getStartLocation
         || !ContentLocation__toString || !Bookmark__dtor) {
@@ -296,18 +298,24 @@ static void jump_when_open(const QString &id, const QByteArray &position, int tr
         return;  // another book was opened meanwhile
     }
     ReadingView *view = reading_view();
-    if (!view || !ReadingView__isBookOpened(view)) {
+    QString at;
+    alignas(8) unsigned char bookmark[kBookmarkBytes];
+    if (view) {
+        ReadingView__bookmarkForCurrentLocation(bookmark, view);
+        at = ContentLocation__toString(Bookmark__getStartLocation(bookmark));
+    }
+    if (!view || at.isEmpty() || at != last) {
+        if (view) {
+            Bookmark__dtor(bookmark);
+        }
         if (tries + 1 >= kJumpTries) {
             log_line(QStringLiteral("jump: the book did not open within %1 s").arg(kJumpTries * kJumpPollMs / 1000));
             return;
         }
-        QTimer::singleShot(kJumpPollMs, qApp, [id, position, tries] { jump_when_open(id, position, tries + 1); });
+        QTimer::singleShot(kJumpPollMs, qApp, [id, position, tries, at] { jump_when_open(id, position, tries + 1, at); });
         return;
     }
     const QString target = QString::fromUtf8(position);
-    alignas(8) unsigned char bookmark[kBookmarkBytes];
-    ReadingView__bookmarkForCurrentLocation(bookmark, view);
-    const QString at = ContentLocation__toString(Bookmark__getStartLocation(bookmark));
     if (at == target) {
         log_line(QStringLiteral("jump: Nickel is already at %1").arg(at));
         Bookmark__dtor(bookmark);
@@ -453,7 +461,9 @@ void _nh_ReadingController__setVolume(ReadingController *self, const Volume *vol
     g_pending = Pending();
     Volume__dtor(copy);
     log_locations_later();
-    jump_when_open(id, p.position);
+    // Give Nickel a second to render the first page before asking.
+    const QByteArray position = p.position;
+    QTimer::singleShot(1000, qApp, [id, position] { jump_when_open(id, position); });
 }
 
 extern "C" __attribute__((visibility("default")))
@@ -569,7 +579,6 @@ static struct nh_dlsym NickelInkSyncDlsym[] = {
     {.name = "_ZNK8Bookmark16getStartLocationEv", .out = nh_symoutptr(Bookmark__getStartLocation), .desc = "Diagnosis", .optional = true},
     {.name = "_ZNK15ContentLocation8toStringEv", .out = nh_symoutptr(ContentLocation__toString), .desc = "Diagnosis", .optional = true},
     {.name = "_ZN8BookmarkD1Ev", .out = nh_symoutptr(Bookmark__dtor), .desc = "Diagnosis, jump", .optional = true},
-    {.name = "_ZNK11ReadingView12isBookOpenedEv", .out = nh_symoutptr(ReadingView__isBookOpened), .desc = "Jump", .optional = true},
     {.name = "_ZN11ReadingView12goToBookmarkERK8Bookmark", .out = nh_symoutptr(ReadingView__goToBookmark), .desc = "Jump", .optional = true},
     {.name = "_ZN8Bookmark16setStartLocationERK15ContentLocation", .out = nh_symoutptr(Bookmark__setStartLocation), .desc = "Jump", .optional = true},
     {.name = "_ZN15ContentLocation6createE7QStringS0_", .out = nh_symoutptr(ContentLocation__create), .desc = "Jump", .optional = true},

@@ -283,7 +283,14 @@ beiden Geräte beim Testen nicht durcheinander.
     Nickels Lesezeichen für die aktuelle Stelle nehmen, Start auf die
     geholte Position setzen (`ContentLocation::create`, RMSDK-Format aus
     `#point(`), `goToBookmark`.
-  - [ ] **du:** Vierter Test: springt Nickel an die Stelle?
+  - [x] **du:** Vierter Test (2026-10-24, `confirm = never` zum Testen):
+    KOReader-Push R2-63 kam richtig an, Tolino-Push R2-113 auch. Gesprungen
+    wurde nicht: `ReadingView::isBookOpened()` blieb 15 s lang falsch,
+    obwohl das Buch offen war. (Erster Versuch scheiterte an einer
+    angeklebten Zeile in `config.ini`, mein Fehler in der Anleitung.)
+  - [x] **ich:** „Offen“ heißt jetzt: Lesesicht aktiv und zweimal hintereinander
+    dieselbe Stelle gemeldet.
+  - [ ] **du:** Fünfter Test: springt Nickel an die Stelle?
 
 ## Optional (später)
 

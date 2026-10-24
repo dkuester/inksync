@@ -117,14 +117,15 @@ across, never the place in it.
 ### Step 3: jump once the book is open
 
 So the plugin moves the open book with Nickel's own navigation. Polling
-every 300 ms until the reading view is current and `isBookOpened()`, it
-takes Nickel's bookmark for the current location, sets the pulled
+every 300 ms until the reading view is current and reports the same
+location twice in a row, it takes Nickel's bookmark for the current
+location, sets the pulled
 position as its start and calls `goToBookmark`; the `Volume` changes stay,
 so the jump stays inside the chapter Nickel opened.
 
 | Purpose | Symbol | Signature (checked) |
 |---|---|---|
-| Book open? | `_ZNK11ReadingView12isBookOpenedEv` | `bool ReadingView::isBookOpened() const` |
+| (not used) | `_ZNK11ReadingView12isBookOpenedEv` | `bool ReadingView::isBookOpened() const`: stayed false for 15 s with Book R open on the Tolino (it checks for one renderer type), so it cannot tell that a plain EPUB is open |
 | Current view | `_ZN20MainWindowController14sharedInstanceEv`, `_ZNK20MainWindowController11currentViewEv` | `MainWindowController *sharedInstance()`, `QWidget *currentView() const` (object name `ReadingView`) |
 | Current position | `_ZN11ReadingView26bookmarkForCurrentLocationEv` | `Bookmark ReadingView::bookmarkForCurrentLocation()` (by value; a `Bookmark` is 8 bytes: vtable, shared data) |
 | Its start | `_ZNK8Bookmark16getStartLocationEv` | `ContentLocation const& Bookmark::getStartLocation() const`, a **reference** (`d + 0x104`), not a value |
