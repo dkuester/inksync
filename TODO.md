@@ -406,7 +406,7 @@ dürfen jederzeit dazwischengeschoben werden.
     R3-58, beim Verlassen gesendet, KOReader zeigt es. **Weg B funktioniert.**
   - [ ] **ich (später, O3/O4):** Rückfrage im Plugin als Dialog, statt eine
     Position, die eine Antwort braucht, liegen zu lassen.
-- [~] **N5 Meldungen im Plugin** · PR folgt
+- [~] **N5 Meldungen im Plugin** · PR #25
   - [x] **ich:** Nickels Toast (`MainWindowController::toast`, per
     Disassembly geprüft: `void`, das `int` ist die Anzeigedauer in ms) für
     jedes Ergebnis beim Öffnen und Verlassen, vorerst nur auf Deutsch.
