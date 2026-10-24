@@ -168,7 +168,7 @@ beiden Geräte beim Testen nicht durcheinander.
   - [ ] **du:** Gerät auswerfen und prüfen, ob Nickel die neue Position
     übernimmt oder überschreibt.
 
-- [~] **P3 Rückfrage bei abweichender Position (einstellbar)**
+- [x] **P3 Rückfrage bei abweichender Position (einstellbar)** · PR #18
   - [x] **ich:** `confirm = never | backwards | always` in der Konfiguration
     (`sync::decide`). „Rückwärts“: Die Position, die überschrieben würde,
     liegt weiter hinten im Buch (Spine-Index, dann Prozent), nicht nach
@@ -178,7 +178,11 @@ beiden Geräte beim Testen nicht durcheinander.
     (jetzt auch bei `pull`) überschreibt ohne Frage. Später im Plugin als
     Dialog (O3/O4).
   - [x] **du:** Standardwert festgelegt: `backwards`.
-  - [ ] **du:** Rückfrage im Terminal einmal ausprobieren (Anleitung im PR).
+  - [x] **du:** Am Tolino geprüft (2026-10-24, Book R): KOReader bei 45 %
+    in Kapitel 2 synchronisiert (10:21:06), Buch auf dem Tolino nur
+    geöffnet (`DateLastRead` 10:21:28, Position 27 % in Kapitel 1).
+    `status` meldet „push asks first“, `push` fragt, Antwort `s` behält die
+    Server-Position; mit `< /dev/null` wird nichts gesendet.
 
 ## Plugin
 
