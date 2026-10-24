@@ -257,3 +257,27 @@ beiden Geräte beim Testen nicht durcheinander.
   6.x markieren. Auf 4.46 zeigt Nickel Markierungen im kepub verschoben und im
   EPUB teils gar nicht an (gespeichert wird richtig); auf dem Tolino mit 5.18
   tritt das nicht auf.
+
+## Langfristig (andere Gerätefamilien)
+
+- [~] **L1 Kindle ↔ KOSync** · Machbarkeit in `SCOPE.md` (Abschnitt Kindle)
+  - [x] **du:** Book A, C, P, Q und R per Send-to-Kindle auf den Paperwhite
+    11 (5.19.2) geladen, in Book P und Q die Zielwörter markiert, in Book R
+    zwei Seiten gelesen (R2-99, R3-85) und die Wörter oben notiert.
+  - [x] **ich:** Nur lesend kopiert und ausgewertet: KFX ohne DRM, Position
+    `lpr` in der `.yjf` per USB, `eid` + Offset in Codepoints, zeichengenau;
+    Abweichungen zu KOReader bei Leerraum am Absatzanfang, Inline-Elementen
+    und Kommentaren, CDATA-Text geht bei der Umwandlung verloren. Kein Weg
+    vom KFX zur Prüfsumme der EPUB.
+  - [x] **ich:** Anonymisierte Kindle-Fixtures für Book P, Q und R
+    (`tools/make_kindle_fixture.py`, `tests/fixtures/kindle/`).
+  - [x] **du:** Fixtures durchgesehen und freigegeben (2026-10-24).
+  - [x] **du:** Festgelegt: Nutzer haben standardmäßig **keinen Jailbreak**.
+    Der Funktionsumfang wird getrennt: ohne Jailbreak Desktop-CLI per USB
+    (`.yjf`), mit Jailbreak zusätzlich `cc.db` und Sync ohne Kabel
+    (Daemon auf dem Gerät). Nichts aus dem Grundumfang darf den Jailbreak
+    brauchen.
+  - [ ] **ich:** KFX-Leser und Übersetzung `eid` + Offset → XPointer
+    (braucht O1 für die Buchzuordnung).
+  - [ ] **du:** Prüfen, ob der Kindle eine geänderte `.yjf` übernimmt
+    (Flugmodus, damit Amazons Sync nicht dazwischenfunkt).
