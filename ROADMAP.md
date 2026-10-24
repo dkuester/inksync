@@ -60,6 +60,10 @@ L = a week or more, including verification.
       `backwards`) for `push` and `pull`: "backwards" is judged by the place
       in the book, not by time, because Nickel sets `DateLastRead` on
       opening; terminal prompt, nothing overwritten without a terminal
+- [x] Position translation back to the Tolino: KOReader XPointer → Adobe
+      point; every Tolino highlight in Book P and Book Q and the Book R
+      positions round-trip unchanged, and KOReader's highlights map to
+      exactly the Tolino's points; `pull` shows the device position
 
 ## Quick wins
 
@@ -82,10 +86,9 @@ follows in a pass of its own.
   cross-check on the Kobo: Tolino chapter rows are ToC entries, so their
   `VolumeIndex` is a ToC index, not a spine index. Fixtures: the Clara BW
   and Shine Color databases in `tests/fixtures/db/`.
-- **Position translation, back to the device** (M): KOReader XPointer →
-  Kobo span or Adobe point, for `pull`. The forward direction is done (see
-  "Recently completed"); a computed XPointer opens at the right place in
-  KOReader (checked with Book R).
+- **Position translation, back to the Kobo** (S–M): KOReader XPointer →
+  Kobo span (kepub) and the 4.x Adobe point, for `pull` on the Kobo. Back to
+  the Tolino is done (see "Recently completed").
 - **USB write-back** (M): write a pulled position into the database only
   while the device is mounted, with a backup copy first. Blocker: confirm that
   Nickel picks the new position up after eject instead of overwriting it.

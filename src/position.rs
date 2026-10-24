@@ -1,7 +1,9 @@
 //! Position translation between Nickel and KOReader.
 //!
 //! Converts a Nickel position (kepub span or Adobe point inside a chapter) to
-//! a KOReader XPointer and back, using the EPUB itself.
+//! a KOReader XPointer and back, using the EPUB itself. Back is done for the
+//! Tolino's Adobe point so far ([`from_xpointer`]); the Kobo's span and its
+//! 4.x point follow with the Kobo.
 //!
 //! The rules come from highlights of the same words on a Kobo 4.46, a Tolino
 //! 5.18 and in KOReader (probe books Book P and Book Q, see SCOPE.md):
@@ -64,6 +66,24 @@ impl Position {
   }
 }
 
+impl fmt::Display for Position {
+  /// As Nickel stores it in `ChapterIDBookmarked`.
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{}", self.chapter)?;
+    match &self.anchor {
+      Anchor::None => Ok(()),
+      Anchor::KoboSpan { id, .. } => write!(f, "#{id}"),
+      Anchor::Point { steps, offset } => {
+        write!(f, "#point(")?;
+        for step in steps {
+          write!(f, "/{step}")?;
+        }
+        write!(f, ":{offset})")
+      }
+    }
+  }
+}
+
 fn parse_point(fragment: &str) -> Option<(Vec<usize>, usize)> {
   let inner = fragment.strip_prefix("point(")?.strip_suffix(')')?;
   let (path, offset) = inner.split_once(':')?;
@@ -118,6 +138,10 @@ pub enum Error {
   Epub(epub::Error),
   /// The chapter is not in the spine of this file.
   UnknownChapter(String),
+  /// Not `/body[1]/DocFragment[n]…`, or `n` is not in the spine.
+  BadXPointer(String),
+  /// No translation back for this device yet.
+  Unsupported(&'static str),
 }
 
 impl fmt::Display for Error {
@@ -125,6 +149,8 @@ impl fmt::Display for Error {
     match self {
       Error::Epub(e) => write!(f, "{e}"),
       Error::UnknownChapter(c) => write!(f, "chapter {c} is not in the spine"),
+      Error::BadXPointer(x) => write!(f, "not a KOReader position in this book: {x}"),
+      Error::Unsupported(e) => write!(f, "{e}"),
     }
   }
 }
@@ -164,6 +190,166 @@ pub fn to_xpointer(
       exact: false,
     },
   })
+}
+
+/// A KOReader position translated for the device.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Translated {
+  pub position: Position,
+  /// `false` if the XPointer below the chapter did not resolve, so the
+  /// position is the chapter's first text.
+  pub exact: bool,
+}
+
+/// Converts a KOReader XPointer to an Adobe point in `epub`, the inverse of
+/// [`to_xpointer`] for the Tolino ([`PointFlavor::AllNodes`]). A path that
+/// does not resolve in the chapter falls back to the chapter's first text.
+///
+/// In a run of spaces KOReader counts one character, so an offset in or
+/// after a run maps to the end of the run, the next visible character.
+pub fn from_xpointer(
+  epub: &mut Epub,
+  xpointer: &str,
+  flavor: PointFlavor,
+) -> Result<Translated, Error> {
+  if flavor != PointFlavor::AllNodes {
+    return Err(Error::Unsupported(
+      "positions back to Kobo firmware 4.x are not translated yet",
+    ));
+  }
+  let bad = || Error::BadXPointer(xpointer.to_string());
+  let rest = xpointer
+    .strip_prefix("/body[1]/DocFragment[")
+    .or_else(|| xpointer.strip_prefix("/body/DocFragment["))
+    .ok_or_else(bad)?;
+  let (n, below) = rest.split_once(']').ok_or_else(bad)?;
+  let spine_index = n
+    .parse::<usize>()
+    .ok()
+    .and_then(|n| n.checked_sub(1))
+    .filter(|&i| i < epub.spine.len())
+    .ok_or_else(bad)?;
+  let chapter = epub.spine[spine_index].clone();
+  let html = epub.chapter(spine_index)?;
+  let resolved = Some(below)
+    .filter(|b| !b.is_empty())
+    .and_then(|b| point_for(&html, b));
+  let (path, bytes, exact) = match resolved {
+    Some((path, bytes)) => (path, bytes, true),
+    None => {
+      // The chapter's first text, below `body` as KOReader starts there.
+      let body = html
+        .children
+        .iter()
+        .position(|c| matches!(c, Node::Element(e) if e.name == "body"));
+      let inner = body
+        .and_then(|i| match &html.children[i] {
+          Node::Element(e) => first_visible_text(e).map(|p| [vec![i], p].concat()),
+          _ => None,
+        })
+        .ok_or_else(|| Error::BadXPointer(format!("{xpointer} (chapter without text)")))?;
+      (inner, 0, false)
+    }
+  };
+  let mut steps = vec![1];
+  steps.extend(path.iter().map(|i| i + 1));
+  Ok(Translated {
+    position: Position {
+      chapter,
+      anchor: Anchor::Point {
+        steps,
+        offset: bytes,
+      },
+    },
+    exact,
+  })
+}
+
+/// Child indices from `html` and a UTF-8 byte offset for the part of a
+/// KOReader XPointer below `DocFragment[n]`: `/body[1]/p[3]/text()[1].12`.
+/// A path ending on an element gives its first text.
+fn point_for(html: &Element, below: &str) -> Option<(Vec<usize>, usize)> {
+  let (steps, offset) = match below.rsplit_once('.') {
+    Some((steps, offset)) if offset.bytes().all(|b| b.is_ascii_digit()) => {
+      (steps, offset.parse::<usize>().ok()?)
+    }
+    _ => (below, 0),
+  };
+  let mut element = html;
+  let mut path = Vec::new();
+  for step in steps.strip_prefix('/')?.split('/') {
+    let (name, n) = match step.split_once('[') {
+      Some((name, n)) => (name, n.strip_suffix(']')?.parse::<usize>().ok()?),
+      None => (step, 1),
+    };
+    if n == 0 {
+      return None;
+    }
+    if name == "text()" {
+      // Text nodes by position among text and CDATA siblings.
+      let i = element
+        .children
+        .iter()
+        .enumerate()
+        .filter(|(_, c)| matches!(c, Node::Text(_) | Node::CData(_)))
+        .nth(n - 1)?
+        .0;
+      let (Node::Text(text) | Node::CData(text)) = &element.children[i] else {
+        unreachable!()
+      };
+      path.push(i);
+      return Some((path, collapsed_to_bytes(text, offset)));
+    }
+    let i = element
+      .children
+      .iter()
+      .enumerate()
+      .filter(|(_, c)| matches!(c, Node::Element(e) if e.name == name))
+      .nth(n - 1)?
+      .0;
+    let Node::Element(child) = &element.children[i] else {
+      unreachable!()
+    };
+    path.push(i);
+    element = child;
+  }
+  // Ends on an element: its first text.
+  path.extend(first_visible_text(element)?);
+  Some((path, 0))
+}
+
+/// Like [`first_text`], but skips text that is only whitespace (the line
+/// break before the first paragraph), as a reader would show it.
+fn first_visible_text(element: &Element) -> Option<Vec<usize>> {
+  for (i, child) in element.children.iter().enumerate() {
+    match child {
+      Node::Text(t) | Node::CData(t) if !t.trim().is_empty() => return Some(vec![i]),
+      Node::Element(e) => {
+        if let Some(mut path) = first_visible_text(e) {
+          path.insert(0, i);
+          return Some(path);
+        }
+      }
+      _ => {}
+    }
+  }
+  None
+}
+
+/// The UTF-8 byte offset in `s` after `collapsed` characters counted as
+/// [`collapsed_len`] does: the longest prefix of that length, so an offset
+/// right after a collapsed run lands behind the whole run.
+fn collapsed_to_bytes(s: &str, collapsed: usize) -> usize {
+  let (mut len, mut in_space, mut end) = (0, false, 0);
+  for (i, c) in s.char_indices() {
+    let space = matches!(c, ' ' | '\t' | '\n' | '\r');
+    let next = if space && in_space { len } else { len + 1 };
+    if next > collapsed {
+      break;
+    }
+    (len, in_space, end) = (next, space, i + c.len_utf8());
+  }
+  end
 }
 
 /// The XPointer below `DocFragment[n]` for an anchor in the chapter `html`.
@@ -401,6 +587,48 @@ mod tests {
     assert_eq!(bytes_to_chars("äöü x", 6), 3);
     assert_eq!(utf16_to_chars("a\u{1d11e} b", 3), 2);
     assert_eq!(collapsed_len("   a  b\n\t c"), 6);
+  }
+
+  #[test]
+  fn collapsed_offsets_back_to_bytes() {
+    let text = "\n    Größe  über";
+    // Inside the leading run: behind it, at "G".
+    assert_eq!(collapsed_to_bytes(text, 0), 0);
+    assert_eq!(collapsed_to_bytes(text, 1), 5);
+    // "Größe" is 7 bytes; then two spaces count as one.
+    assert_eq!(collapsed_to_bytes(text, 6), 12);
+    assert_eq!(collapsed_to_bytes(text, 7), 14);
+    assert_eq!(collapsed_to_bytes(text, 99), text.len());
+    for raw in [0, 5, 7, 14] {
+      let chars = bytes_to_chars(text, raw);
+      let prefix: String = text.chars().take(chars).collect();
+      assert_eq!(collapsed_to_bytes(text, collapsed_len(&prefix)), raw);
+    }
+  }
+
+  #[test]
+  fn xpointer_back_to_point() {
+    let html =
+      parse("<html><head/><body>\n<p>ab <!--c--> de<em>f</em></p>\n</body></html>").unwrap();
+    let point = |below| point_for(&html, below);
+    // After the comment: the third child of p, "d" is byte 1.
+    assert_eq!(point("/body[1]/p[1]/text()[2].1"), Some((vec![1, 1, 2], 1)));
+    assert_eq!(point("/body/p/text().0"), Some((vec![1, 1, 0], 0)));
+    // On an element: its first text.
+    assert_eq!(point("/body[1]/p[1]/em[1]"), Some((vec![1, 1, 3, 0], 0)));
+    assert_eq!(point("/body[1]/p[2]/text()[1].0"), None);
+    assert_eq!(point("/body[1]/p[0]"), None);
+  }
+
+  #[test]
+  fn displays_as_stored() {
+    for stored in [
+      "OEBPS/a.xhtml",
+      "OEBPS/a.xhtml#kobo.2.1",
+      "OPS/a.html#point(/1/4/16/1:356)",
+    ] {
+      assert_eq!(Position::parse(stored).to_string(), stored);
+    }
   }
 
   #[test]

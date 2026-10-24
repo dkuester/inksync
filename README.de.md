@@ -36,7 +36,7 @@ nickelinksync pull --device /Volumes/KOBOeReader
 |---|---|
 | `status` | Listet die seitengeladenen Bücher mit Prüfsumme, gespeicherter Position, KOReader-XPointer und, falls eingerichtet, der Position auf dem Server. |
 | `push` | Überträgt die Position jedes Buchs zum Server. Eine Position, die der Server erst nach dem letzten Lesen auf dem Gerät bekommen hat, wird nie überschrieben; außerdem fragt `push` standardmäßig nach, bevor es den Server an eine frühere Stelle im Buch zurücksetzt (siehe `confirm` unten). `--force` überträgt ohne Rückfrage, `--dry-run` zeigt nur, was gesendet würde. |
-| `pull` | Nur Probelauf: zeigt, für welche Bücher der Server eine neuere Position hat und wo es nachfragen würde; `--force` zeigt das Ergebnis ohne Rückfrage. Das Zurückschreiben aufs Gerät fehlt noch. |
+| `pull` | Nur Probelauf: zeigt, für welche Bücher der Server eine neuere Position hat, wie das Gerät sie speichern würde (bisher nur Tolino) und wo es nachfragen würde; `--force` zeigt das Ergebnis ohne Rückfrage. Das Zurückschreiben aufs Gerät fehlt noch. |
 
 Alle drei nehmen `--book <Text>` (nur Bücher, deren Titel oder Dateipfad den
 Text enthält) und `--config <Datei>` für eine andere Konfigurationsdatei. Das

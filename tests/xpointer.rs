@@ -2,13 +2,14 @@
 //! compares them with what KOReader itself stored for the same place:
 //! highlights of the same words in Book P and Book Q on the Kobo 4.46 and
 //! the Tolino 5.18, and reading positions in Book A (see
-//! tests/fixtures/README.md).
+//! tests/fixtures/README.md). The Tolino positions are also translated back
+//! and must come out as stored.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use nickelinksync::epub::Epub;
-use nickelinksync::position::{to_xpointer, Anchor, PointFlavor, Position};
+use nickelinksync::position::{from_xpointer, to_xpointer, Anchor, PointFlavor, Position};
 use rusqlite::Connection;
 
 fn fixtures() -> PathBuf {
@@ -244,4 +245,93 @@ fn long_book_mid_chapter() {
     ),
     "/body[1]/DocFragment[3]/body[1]/div[1]/div[1]/p[117]/span[1]/text()[1].0"
   );
+}
+
+/// Tolino highlights there and back, and KOReader's highlights of the same
+/// words back to exactly the Tolino's points.
+#[test]
+fn tolino_highlights_round_trip() {
+  let db = load("tolino-shinecolor-5.18-probe-books.sql");
+  let flavor = PointFlavor::AllNodes;
+  for (file, sdr) in [("book-p.epub", "book-p.sdr"), ("book-q.epub", "book-q.sdr")] {
+    let mut book = epub(file);
+    let highlights = device_highlights(&db, file);
+    assert_eq!(highlights.len(), 8, "{file}");
+    for (word, position) in highlights {
+      let there = to_xpointer(&mut book, &position, flavor).unwrap();
+      let back = from_xpointer(&mut book, &there.xpointer, flavor).unwrap();
+      assert!(back.exact, "{file} {word}");
+      assert_eq!(back.position, position, "{file} {word}: {}", there.xpointer);
+
+      let koreader = from_xpointer(&mut book, &koreader_pos0(sdr, &word), flavor).unwrap();
+      assert_eq!(koreader.position, position, "{file} {word} from KOReader");
+    }
+  }
+}
+
+#[test]
+fn tolino_reading_positions_round_trip() {
+  let flavor = PointFlavor::AllNodes;
+  let tolino = stored(
+    "tolino-shinecolor-5.18-placeholder-books.sql",
+    "book-a.epub",
+  );
+  let mut book = epub("book-a.epub");
+  let there = to_xpointer(&mut book, &tolino, flavor).unwrap();
+  let back = from_xpointer(&mut book, &there.xpointer, flavor).unwrap();
+  assert_eq!(back.position, tolino);
+
+  // Book R: the page the Tolino pushed to kosync.eu, and a mid-chapter word.
+  let mut book = epub("book-r.epub");
+  for stored in [
+    "OEBPS/text/chapter1.xhtml#point(/1/4/314/1:264)",
+    "OEBPS/text/chapter2.xhtml#point(/1/4/236/1:7)",
+  ] {
+    let position = Position::parse(stored);
+    let there = to_xpointer(&mut book, &position, flavor).unwrap();
+    let back = from_xpointer(&mut book, &there.xpointer, flavor).unwrap();
+    assert_eq!(back.position.to_string(), stored, "{}", there.xpointer);
+  }
+  // Where KOReader left Book R on the server: the start of R2-63.
+  let back = from_xpointer(
+    &mut book,
+    "/body[1]/DocFragment[3]/body[1]/p[63]/text()[1].0",
+    flavor,
+  )
+  .unwrap();
+  assert!(back.exact);
+  assert_eq!(
+    back.position.to_string(),
+    "OEBPS/text/chapter2.xhtml#point(/1/4/128/1:0)"
+  );
+}
+
+#[test]
+fn xpointer_fallbacks() {
+  let flavor = PointFlavor::AllNodes;
+  let mut book = epub("book-r.epub");
+  // Chapter only, or a path the chapter does not have: its first text.
+  for xpointer in [
+    "/body[1]/DocFragment[3]",
+    "/body[1]/DocFragment[3]/body[1]/p[999]/text()[1].0",
+  ] {
+    let back = from_xpointer(&mut book, xpointer, flavor).unwrap();
+    assert!(!back.exact, "{xpointer}");
+    assert_eq!(
+      back.position.to_string(),
+      "OEBPS/text/chapter2.xhtml#point(/1/4/2/1:0)"
+    );
+  }
+  for xpointer in [
+    "/body[1]/DocFragment[99]/body[1]",
+    "/body[1]/DocFragment[0]",
+    "epubcfi(/6/4!/4/2)",
+  ] {
+    assert!(
+      from_xpointer(&mut book, xpointer, flavor).is_err(),
+      "{xpointer}"
+    );
+  }
+  // Back to Kobo 4.x is not done yet.
+  assert!(from_xpointer(&mut book, "/body[1]/DocFragment[3]", PointFlavor::JoinText).is_err());
 }

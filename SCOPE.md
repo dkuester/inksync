@@ -190,6 +190,19 @@ everywhere; only the offsets need converting.
 | KOReader XPointer | code points | collapsed (`\n    ` = 1, leading spaces = 1) | splits `text()` |
 | KOReader CFI | UTF-16 units | collapsed | skipped, text joined |
 
+**XPointer → Adobe point** (back to the Tolino, for `pull`): walk the
+XPointer below `DocFragment[n]` through spine item *n*−1 (elements by
+tag name, `text()[m]` among text and CDATA nodes, comments skipped), then
+count all child nodes from `/1` = `html` for the point. KOReader's offset
+counts a run of whitespace as one character; going back, an offset after
+such a run lands behind the whole run, on the next visible character. A
+path that ends on an element, or does not resolve, gives the first
+non-whitespace text (of the element, or of the chapter). All 16 Tolino
+highlights in Book P and Book Q come back unchanged, KOReader's highlights
+of the same words give exactly the Tolino's points, and so do the Book R
+reading positions. Not done yet: back to the Kobo (kepub span, and the
+4.x point that joins text around comments).
+
 CDATA behaves like a comment in the Adobe point (skipped on Kobo 4.46, a
 node on Tolino 5.18), is a `text()` node of its own in KOReader's XPointer,
 and is joined into the text by KOReader's CFI. A character outside the BMP

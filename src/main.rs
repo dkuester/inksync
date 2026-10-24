@@ -9,7 +9,7 @@ use nickelinksync::db::{Book, Device};
 use nickelinksync::epub::Epub;
 use nickelinksync::hash::partial_md5;
 use nickelinksync::kosync::{self, Client, Progress, Update};
-use nickelinksync::position::{to_xpointer, PointFlavor, Position, XPointer};
+use nickelinksync::position::{from_xpointer, to_xpointer, PointFlavor, Position, XPointer};
 use nickelinksync::sync::{
   self, decide, format_timestamp, parse_timestamp, Confirm, Decision, Direction, Local, Side,
 };
@@ -154,6 +154,20 @@ impl Session {
       .and_then(|mut epub| {
         to_xpointer(&mut epub, &Position::parse(stored), self.flavor).map_err(|e| e.to_string())
       })
+  }
+
+  /// A server XPointer as the device would store it.
+  fn stored(&self, book: &Book, xpointer: &str) -> String {
+    let translated = Epub::open(&self.device.book_file(book))
+      .map_err(|e| e.to_string())
+      .and_then(|mut epub| {
+        from_xpointer(&mut epub, xpointer, self.flavor).map_err(|e| e.to_string())
+      });
+    match translated {
+      Ok(t) if t.exact => t.position.to_string(),
+      Ok(t) => format!("{} (chapter only)", t.position),
+      Err(e) => format!("(not translated: {e})"),
+    }
   }
 
   /// The device position for KOSync, or why there is none.
@@ -567,6 +581,7 @@ fn pull(target: &Target, force: bool) -> Result<bool> {
     };
     if apply {
       println!("  would move to {}", describe(&remote));
+      println!("  on device {}", session.stored(book, &remote.progress));
     }
   }
   unanswered_note(unanswered);

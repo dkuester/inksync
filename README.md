@@ -34,7 +34,7 @@ nickelinksync pull --device /Volumes/KOBOeReader
 |---|---|
 | `status` | Lists the sideloaded books with hash, stored position, KOReader XPointer and, if configured, the position on the server. |
 | `push` | Sends each book's position to the server. A position the server got after the book was last read on the device is never overwritten; by default it also asks before moving the server back to an earlier place in the book (see `confirm` below). `--force` sends without asking, `--dry-run` only shows what would be sent. |
-| `pull` | Dry run only: shows which books have a newer position on the server and where it would ask first; `--force` shows the result without asking. Writing it back to the device is not implemented yet. |
+| `pull` | Dry run only: shows which books have a newer position on the server, how the device would store it (Tolino so far) and where it would ask first; `--force` shows the result without asking. Writing it back to the device is not implemented yet. |
 
 All three take `--book <text>` to limit them to books whose title or file
 path contains the text, and `--config <file>` for another configuration
