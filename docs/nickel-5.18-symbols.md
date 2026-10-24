@@ -56,9 +56,27 @@ How they connect, from the call graph of the whole library:
 - **Page turns** go through `ReadingView::updateContentLocation(…)` →
   `VolumeManager::updateBookmark(…)`, not needed by the plugin.
 
-## The pull path: change the Volumes, not the database
+## The pull path
 
-Writing the database while Nickel runs is not safe: Nickel keeps its
+What works on the Tolino, verified on the device, is
+[step 4](#step-4-write-the-row-then-open): write the pulled position into
+the book's row just before Nickel opens the book. Steps 1 to 3 below are
+the ways tried before, kept with their device tests so nobody tries them
+again.
+
+**Renderer.** On the Tolino 5.18 Nickel renders a plain EPUB with
+**TENG**, a web-engine renderer (`WebEngineRenderer`, `TengAPIHelper`,
+pages under `/TENG/kobo/index.html`), not with Adobe's RMSDK. "RMSDK" in
+`ContentLocation` is only the name of the `#point(/…:offset)` format
+stored in `ChapterIDBookmarked`; Nickel converts it for TENG
+(`ContentLocation::toTENGString`, `WebEngineRenderer::bookmarkForVolume`).
+That is why `ReadingView::isBookOpened()` (a cast to another renderer
+type) stayed false and why steps 1 to 3, which work on `ReadingView` and
+the loaded `Volume`, did not move TENG. A TENG-level jump exists,
+`TengAPIHelper::openBookmark(ContentLocation const&) const`, but reaching
+the helper object needs field offsets; not used.
+
+The first idea was to avoid writing the database while Nickel runs: Nickel keeps its
 `Volume` in memory and writes it back on every page turn and on close
 (`VolumeManager::updateBookmark`), and two processes would write the same
 database. The plugin instead sets the pulled position in **both** `Volume`s
@@ -170,6 +188,16 @@ chapter (from the `Volume`) and the place in it (from the row that
 that Nickel stands in the pulled chapter. A book opened without a pull, or
 not in the pulled chapter, is not pushed when it is left: in the device
 tests that push overwrote the newer position KOReader had sent.
+
+**Device test, verified** (Shine Color 5.18, Book R, 2026-10-24, tenth
+run): KOReader at R3-49 (`p[49]/text()[1].98`, 76 %, on kosync.eu at
+16:08:00 UTC), the Tolino at R2-121, last read 16:04 UTC. Opening the book
+pulled and wrote `chapter3.xhtml#point(/1/4/100/1:101)`, made the day's
+backup (integrity check ok, holding the old position), and Nickel opened
+on the page with that point (its top in R3-48;
+`#point(/1/4/98/1:44)` 4 s later). After reading on to R3-58 and leaving,
+the push sent `p[58]/text()[1].41` (75 %) and KOReader showed it at the
+bottom of its page. No journal files were left next to the database.
 
 ## The push path
 

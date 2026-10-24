@@ -301,6 +301,16 @@ updated. So Nickel takes the written position and does not overwrite it
 with the old one; it snaps to the start of the page it renders, which can
 lie up to a page before the written point. The database stays in WAL mode.
 
+**Plugin on the device** (Shine Color 5.18, *verified* 2026-10-24): the
+same holds while Nickel runs, if the row is written just before Nickel
+opens the book (`pull --live --write`, SQLite's normal locking, one backup
+a day with SQLite's backup API): Nickel opened Book R on the page with
+the pulled point. Changing only what Nickel holds in memory (the
+`Volume`s it opens from) moved the chapter but not the place in it, and
+`ReadingView::goToBookmark` did not move the open book at all; the
+renderer is TENG (see
+[docs/nickel-5.18-symbols.md](docs/nickel-5.18-symbols.md)).
+
 macOS left an AppleDouble file `._KoboReader.sqlite` next to the database
 after the write; it was gone after Nickel had run, and Nickel did not
 mind it.

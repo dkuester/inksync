@@ -237,7 +237,7 @@ beiden Geräte beim Testen nicht durcheinander.
   - [x] **ich (K1-Rest, N4):** Auf dem Gerät die Datenbank mit `mode=ro`
     lesen, nicht `immutable=1` (`--live`): Im WAL-Modus stünde Nickels
     letzte Änderung sonst noch in der `-wal`-Datei und fehlte.
-- [~] **N4 Plugin Qt6**
+- [x] **N4 Plugin Qt6** · PR #22
   - [x] **ich:** NickelHook-Plugin (`plugin/`, Submodul
     `nicoverbruggen/NickelHook`, Branch `qt6-support`): Öffnen-Hook holt die
     Position (`pull --live --emit`, höchstens etwa 15 s) und setzt sie in
@@ -323,7 +323,17 @@ beiden Geräte beim Testen nicht durcheinander.
     `push`; ohne Neueres auf dem Server ist das Buch abgeglichen und wird
     gesendet (vorher wurde es fälschlich nie gesendet). Braucht `pull` eine
     Antwort (`NICKELINKSYNC_UNANSWERED`), wird ebenfalls nicht gesendet.
-  - [ ] **du:** Neunter Test: öffnet das Buch an der KOReader-Stelle?
+  - [x] **du:** Neunter Test (2026-10-24, wieder `confirm = backwards`):
+    Der KOReader-Push R3-49 kam nicht auf dem Server an, der Tolino war
+    damit neuer und blieb bei R2-121 (richtig nach der Regel). Deine Frage
+    nach dem Renderer war berechtigt: Der Tolino rendert mit **TENG**, nicht
+    RMSDK; deshalb griffen meine Eingriffe in Nickels Speicher nicht.
+  - [x] **du + ich:** Zehnter Test (2026-10-24): Server-Stand vorher geprüft
+    (R3-49 von macOS, 16:08 UTC). Beim Öffnen geschrieben und gesichert,
+    Nickel öffnet auf der Seite mit R3-49 (oben R3-48). Weitergelesen bis
+    R3-58, beim Verlassen gesendet, KOReader zeigt es. **Weg B funktioniert.**
+  - [ ] **ich (später, O3/O4):** Rückfrage im Plugin als Dialog, statt eine
+    Position, die eine Antwort braucht, liegen zu lassen.
 
 ## Optional (später)
 
