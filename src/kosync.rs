@@ -100,9 +100,14 @@ impl Client {
   /// `server` is the base URL, e.g. `https://kosync.eu`; `key` is the MD5 of
   /// the password (see [`auth_key`]).
   pub fn new(server: &str, user: &str, key: &str) -> Self {
+    Self::with_timeout(server, user, key, Duration::from_secs(30))
+  }
+
+  /// Like [`Client::new`], with a limit for each request as a whole.
+  pub fn with_timeout(server: &str, user: &str, key: &str, timeout: Duration) -> Self {
     let agent = Agent::config_builder()
       .http_status_as_error(false)
-      .timeout_global(Some(Duration::from_secs(30)))
+      .timeout_global(Some(timeout))
       .user_agent(concat!("nickelinksync/", env!("CARGO_PKG_VERSION")))
       .build()
       .into();

@@ -282,3 +282,72 @@ fn pull_write_leaves_the_kobo_alone() {
   assert_eq!(fs::read(s.db()).unwrap(), before);
   assert!(s.backups().is_empty());
 }
+
+/// The database as Nickel holds it while it runs: WAL mode, the latest
+/// change still in `-wal`, the connection open.
+fn nickel_running(s: &Setup, position: &str) -> Connection {
+  let conn = Connection::open(s.db()).unwrap();
+  let _: String = conn
+    .query_row("PRAGMA journal_mode = WAL", [], |r| r.get(0))
+    .unwrap();
+  conn.pragma_update(None, "wal_autocheckpoint", 0).unwrap();
+  conn
+    .execute(
+      "UPDATE content SET ChapterIDBookmarked = ?1 WHERE ContentID = ?2",
+      [position, BOOK],
+    )
+    .unwrap();
+  conn
+}
+
+#[test]
+fn live_reads_what_nickel_has_not_checkpointed() {
+  let s = Setup::tolino("live-read");
+  let _nickel = nickel_running(&s, AHEAD_ON_DEVICE);
+  assert!(s.journals().iter().any(|j| j.ends_with("-wal")));
+  let args = ["status", "--content-id", BOOK];
+  let (_, live) = s.run(&[&args[..], &["--live"]].concat());
+  assert!(
+    live.contains(&format!("  position  {AHEAD_ON_DEVICE}\n")),
+    "{live}"
+  );
+  // A snapshot reads the database file alone and misses it.
+  let (_, snapshot) = s.run(&args);
+  assert!(!snapshot.contains(AHEAD_ON_DEVICE), "{snapshot}");
+  // Only that one book.
+  assert_eq!(live.matches("  file      ").count(), 1, "{live}");
+}
+
+#[test]
+fn live_pull_emits_the_position_and_never_writes() {
+  let s = Setup::tolino("live-pull");
+  let nickel = nickel_running(&s, "OEBPS/xhtml/xhtml-0-81.xhtml#point(/1/2/1/1:0)");
+  s.server
+    .store(&hash("book-a.epub"), AHEAD, 0.9, LAST_READ + 60);
+  let base = ["pull", "--live", "--content-id", BOOK, "--timeout", "5"];
+  let (output, out) = s.run(&[&base[..], &["--emit"]].concat());
+  assert!(output.status.success(), "{out}");
+  assert!(
+    out.contains(&format!(
+      "\nNICKELINKSYNC_POSITION\t90\t{AHEAD_ON_DEVICE}\n"
+    )),
+    "{out}"
+  );
+  // Only with --emit.
+  let (_, out) = s.run(&base);
+  assert!(!out.contains("NICKELINKSYNC_POSITION"), "{out}");
+  // Writing while Nickel runs is refused before any backup.
+  let (output, _) = s.run(&[&base[..], &["--write"]].concat());
+  assert!(!output.status.success());
+  let stderr = String::from_utf8_lossy(&output.stderr);
+  assert!(stderr.contains("in use by Nickel"), "{stderr}");
+  assert!(s.backups().is_empty());
+  let stored: String = nickel
+    .query_row(
+      "SELECT ChapterIDBookmarked FROM content WHERE ContentID = ?1",
+      [BOOK],
+      |r| r.get(0),
+    )
+    .unwrap();
+  assert_eq!(stored, "OEBPS/xhtml/xhtml-0-81.xhtml#point(/1/2/1/1:0)");
+}

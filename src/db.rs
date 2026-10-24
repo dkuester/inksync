@@ -53,12 +53,15 @@ pub struct Device {
   /// `None` if `.kobo/version` is missing or unreadable.
   pub firmware: Option<Firmware>,
   pub db: DeviceDb,
+  /// Opened while Nickel runs: never written.
+  pub live: bool,
 }
 
 impl Device {
-  /// Opens the device at `root`. The database is opened as a snapshot (see
-  /// [`DeviceDb::open_snapshot`]): nothing is written to the device.
-  pub fn open(root: &Path) -> Result<Self, Error> {
+  /// Opens the device at `root`. The database is opened read-only, as a
+  /// snapshot (see [`DeviceDb::open_snapshot`]) or, with `live`, while
+  /// Nickel runs and writes it ([`DeviceDb::open_live`]).
+  pub fn open(root: &Path, live: bool) -> Result<Self, Error> {
     let db_path = root.join(".kobo/KoboReader.sqlite");
     if !db_path.is_file() {
       return Err(Error::NotADevice(root.to_path_buf()));
@@ -69,7 +72,12 @@ impl Device {
     Ok(Device {
       root: root.to_path_buf(),
       firmware,
-      db: DeviceDb::open_snapshot(&db_path)?,
+      db: if live {
+        DeviceDb::open_live(&db_path)?
+      } else {
+        DeviceDb::open_snapshot(&db_path)?
+      },
+      live,
     })
   }
 
@@ -94,6 +102,11 @@ impl Device {
   /// file, and after the commit a checkpoint moves the change from the
   /// `-wal` file into the database, so the device holds one file again.
   pub fn write_positions(&self, writes: &[Write], backup: &Path) -> Result<(), Error> {
+    if self.live {
+      return Err(Error::Refused(
+        "the database is in use by Nickel; write only to a device mounted over USB".into(),
+      ));
+    }
     if self.firmware.is_none() {
       return Err(Error::Refused(format!(
         "{} has no readable .kobo/version, so it does not look like a mounted device",
@@ -285,6 +298,19 @@ impl DeviceDb {
       format!("{}?immutable=1", file_uri(path)),
       OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
     )?;
+    Ok(DeviceDb { conn })
+  }
+
+  /// Opens the database of the running device, read-only, while Nickel
+  /// keeps writing it (the plugin). Nickel uses WAL mode, so its latest
+  /// changes may still be in `-wal`: unlike [`DeviceDb::open_snapshot`] this
+  /// reads them, through SQLite's normal locking.
+  pub fn open_live(path: &Path) -> Result<Self, rusqlite::Error> {
+    let conn = Connection::open_with_flags(
+      format!("{}?mode=ro", file_uri(path)),
+      OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
+    )?;
+    conn.busy_timeout(std::time::Duration::from_secs(5))?;
     Ok(DeviceDb { conn })
   }
 
