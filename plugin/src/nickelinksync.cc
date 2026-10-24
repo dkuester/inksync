@@ -26,6 +26,15 @@
  *   pushes that book in the background (`push --live`), so leaving the book
  *   never waits for the network.
  *
+ * Network: Nickel switches Wi-Fi off when idle. Before pulling, the hook
+ * switches it on (WirelessWorkflowManager::connectWireless, as NickelStorygraph
+ * does) and waits in a local event loop, so the UI keeps running; before
+ * pushing it does the same without waiting, polling once a second.
+ *
+ * Diagnosis (device tests of the open path): every getById of the opened
+ * book with its caller and whether it was changed, and where Nickel stands
+ * 3 s and 10 s after opening (ReadingView::bookmarkForCurrentLocation).
+ *
  * Symbols and signatures: docs/nickel-5.18-symbols.md.
  *
  * Tolino only for now: init() leaves the plugin inactive on a Kobo (the
@@ -35,13 +44,18 @@
 
 #include <NickelHook.h>
 
+#include <dlfcn.h>
+
 #include <QByteArray>
+#include <QCoreApplication>
 #include <QDateTime>
+#include <QEventLoop>
 #include <QFile>
 #include <QFileInfo>
 #include <QProcess>
 #include <QString>
 #include <QStringList>
+#include <QTimer>
 #include <QVariant>
 
 typedef void Device;
@@ -49,6 +63,9 @@ typedef void Volume;
 typedef void Bookmark;
 typedef void ReadingController;
 typedef void ReadingView;
+typedef void WirelessWorkflowManager;
+typedef void MainWindowController;
+typedef void ContentLocation;
 
 static const char kDir[]    = "/mnt/onboard/.adds/NickelInkSync";
 static const char kCli[]    = "/mnt/onboard/.adds/NickelInkSync/nickelinksync";
@@ -64,6 +81,13 @@ static const int kPullWaitMs = 15000;
 // A Volume is 12 bytes in 5.18 (vtable, shared data, flags; see the copy
 // constructor); room to spare.
 static const size_t kVolumeBytes = 64;
+// A Bookmark is 8 bytes (vtable, shared data; see its constructor).
+static const size_t kBookmarkBytes = 64;
+// How long opening a book may wait for Wi-Fi, and leaving it.
+static const int kWifiOpenWaitMs = 12000;
+static const int kWifiLeaveWaitS = 45;
+// How long getById calls of the opened book are logged.
+static const int kWatchMs = 20000;
 
 // Originals, filled by NickelHook (.out).
 static void (*ReadingController__setVolume)(ReadingController *, const Volume *, const Bookmark *);
@@ -86,6 +110,20 @@ static void (*Volume__dtor)(Volume *);
 static void (*Content__setChapterIdBookmarked)(Volume *, const QVariant &);
 static void (*Content__setPercentRead)(Volume *, const QVariant &);
 
+// Optional (NULL if missing): network and diagnosis.
+static WirelessWorkflowManager *(*WirelessWorkflowManager__sharedInstance)();
+static bool (*WirelessWorkflowManager__isInternetAccessible)(WirelessWorkflowManager *);
+static void (*WirelessWorkflowManager__connectWireless)(WirelessWorkflowManager *, bool, bool);
+static MainWindowController *(*MainWindowController__sharedInstance)();
+// Returns a QWidget*; QObject is its first base, so the pointer is the same.
+static QObject *(*MainWindowController__currentView)(const MainWindowController *);
+// Bookmark by value: hidden result pointer in r0, `this` in r1.
+static void (*ReadingView__bookmarkForCurrentLocation)(void *result, ReadingView *);
+// Returns a reference (d + 0x104), not a value.
+static const ContentLocation *(*Bookmark__getStartLocation)(const Bookmark *);
+static QString (*ContentLocation__toString)(const ContentLocation *);
+static void (*Bookmark__dtor)(Bookmark *);
+
 // Set at the end of a successful init(); every hook passes through until then.
 static bool g_active = false;
 // ContentID of the book opened last (GUI thread only).
@@ -102,6 +140,14 @@ struct Pending {
 };
 static Pending g_pending;
 
+// getById calls of the opened book are logged until `until` (diagnosis).
+struct Watch {
+    QString id;
+    QDateTime until;
+    int calls = 0;
+};
+static Watch g_watch;
+
 static void log_line(const QString &msg)
 {
     nh_log("%s", qPrintable(msg));
@@ -115,6 +161,111 @@ static void log_line(const QString &msg)
         f.write(msg.toUtf8());
         f.write("\n");
     }
+}
+
+static bool online()
+{
+    return WirelessWorkflowManager__sharedInstance && WirelessWorkflowManager__isInternetAccessible
+        && WirelessWorkflowManager__isInternetAccessible(WirelessWorkflowManager__sharedInstance());
+}
+
+// Asks Nickel to connect, from the event loop (NickelStorygraph does the
+// same; connectWirelessSilently can stall the event loop).
+static bool connect_wifi()
+{
+    if (!WirelessWorkflowManager__sharedInstance || !WirelessWorkflowManager__connectWireless) {
+        return false;
+    }
+    QTimer::singleShot(0, qApp, [] {
+        WirelessWorkflowManager__connectWireless(WirelessWorkflowManager__sharedInstance(), false, false);
+    });
+    return true;
+}
+
+// Waits until the network is there, at most `ms`, in a local event loop so
+// the UI keeps running.
+static bool wait_online(int ms)
+{
+    if (online()) {
+        return true;
+    }
+    if (!connect_wifi()) {
+        return false;
+    }
+    log_line(QStringLiteral("no network: switching Wi-Fi on, waiting up to %1 s").arg(ms / 1000));
+    QEventLoop loop;
+    QTimer poll;
+    QObject::connect(&poll, &QTimer::timeout, &loop, [&loop] {
+        if (online()) {
+            loop.quit();
+        }
+    });
+    QTimer::singleShot(ms, &loop, &QEventLoop::quit);
+    poll.start(500);
+    loop.exec();
+    const bool ok = online();
+    log_line(ok ? QStringLiteral("network is there") : QStringLiteral("still no network"));
+    return ok;
+}
+
+// Runs `fn` once the network is there, polling once a second for at most
+// `seconds`, without waiting.
+template <typename F>
+static void when_online(int seconds, F fn)
+{
+    if (online() || !connect_wifi()) {
+        fn();
+        return;
+    }
+    log_line(QStringLiteral("no network: switching Wi-Fi on, waiting up to %1 s in the background").arg(seconds));
+    QTimer *t = new QTimer(qApp);
+    QObject::connect(t, &QTimer::timeout, t, [t, fn, seconds, n = 0]() mutable {
+        if (online()) {
+            t->deleteLater();
+            fn();
+        } else if (++n >= seconds) {
+            t->deleteLater();
+            log_line(QStringLiteral("still no network after %1 s: nothing sent").arg(seconds));
+        }
+    });
+    t->start(1000);
+}
+
+// Where Nickel stands in the open book (diagnosis).
+static void log_location(const QString &when)
+{
+    if (!MainWindowController__sharedInstance || !MainWindowController__currentView
+        || !ReadingView__bookmarkForCurrentLocation || !Bookmark__getStartLocation
+        || !ContentLocation__toString || !Bookmark__dtor) {
+        return;
+    }
+    QObject *view = MainWindowController__currentView(MainWindowController__sharedInstance());
+    if (!view || view->objectName() != QLatin1String("ReadingView")) {
+        log_line(QStringLiteral("%1: not in the reading view").arg(when));
+        return;
+    }
+    alignas(8) unsigned char bookmark[kBookmarkBytes];
+    ReadingView__bookmarkForCurrentLocation(bookmark, view);
+    const QString at = ContentLocation__toString(Bookmark__getStartLocation(bookmark));
+    Bookmark__dtor(bookmark);
+    log_line(QStringLiteral("%1: Nickel is at %2").arg(when, at));
+}
+
+// Logs where Nickel stands 3 s and 10 s after the book was opened.
+static void log_locations_later()
+{
+    QTimer::singleShot(3000, qApp, [] { log_location(QStringLiteral("3 s after opening")); });
+    QTimer::singleShot(10000, qApp, [] { log_location(QStringLiteral("10 s after opening")); });
+}
+
+// The exported libnickel function a return address lies in (diagnosis).
+static QString caller(void *address)
+{
+    Dl_info info;
+    if (dladdr(address, &info) && info.dli_sname) {
+        return QString::fromLatin1(info.dli_sname);
+    }
+    return QStringLiteral("(unknown)");
 }
 
 // The common arguments for one book: device, configuration, book, live.
@@ -190,9 +341,18 @@ void _nh_ReadingController__setVolume(ReadingController *self, const Volume *vol
         ReadingController__setVolume(self, volume, bookmark);
         return;
     }
+    if (!wait_online(kWifiOpenWaitMs)) {
+        log_line(QStringLiteral("open %1 unchanged: no network").arg(id));
+        ReadingController__setVolume(self, volume, bookmark);
+        return;
+    }
     const Pulled p = pull(id);
+    g_watch.id = id;
+    g_watch.until = QDateTime::currentDateTimeUtc().addMSecs(kWatchMs);
+    g_watch.calls = 0;
     if (!p.found) {
         ReadingController__setVolume(self, volume, bookmark);
+        log_locations_later();
         return;
     }
     log_line(QStringLiteral("open %1 at %2 (%3 %)").arg(id, QString::fromUtf8(p.position)).arg(p.percent));
@@ -211,19 +371,25 @@ void _nh_ReadingController__setVolume(ReadingController *self, const Volume *vol
     }
     g_pending = Pending();
     Volume__dtor(copy);
+    log_locations_later();
 }
 
 extern "C" __attribute__((visibility("default")))
 Volume *_nh_VolumeManager__getById(Volume *out, const QString *id, const QString *other)
 {
     VolumeManager__getById(out, id, other);
-    if (g_pending.active && *id == g_pending.id) {
+    const bool patch = g_pending.active && *id == g_pending.id;
+    if (patch) {
         Content__setChapterIdBookmarked(out, QVariant(g_pending.position));
         Content__setPercentRead(out, QVariant(g_pending.percent));
-        if (!g_pending.applied) {
-            log_line(QStringLiteral("open %1: position set in the book Nickel loaded").arg(*id));
-        }
         g_pending.applied = true;
+    }
+    if (*id == g_watch.id && QDateTime::currentDateTimeUtc() < g_watch.until) {
+        log_line(QStringLiteral("getById #%1 by %2, %3, %4")
+                     .arg(++g_watch.calls)
+                     .arg(caller(__builtin_return_address(0)),
+                          g_pending.active ? QStringLiteral("while opening") : QStringLiteral("after opening"),
+                          patch ? QStringLiteral("position set") : QStringLiteral("unchanged")));
     }
     return out;
 }
@@ -244,10 +410,13 @@ void _nh_ReadingView__leavingReadingExperience(ReadingView *self)
         QString::fromLatin1(kCli),
     };
     args << book_args("push", g_open_id);
-    log_line(QStringLiteral("push %1").arg(g_open_id));
-    if (!QProcess::startDetached(QStringLiteral("/bin/sh"), args)) {
-        log_line(QStringLiteral("push: could not start the CLI"));
-    }
+    const QString id = g_open_id;
+    when_online(kWifiLeaveWaitS, [args, id] {
+        log_line(QStringLiteral("push %1").arg(id));
+        if (!QProcess::startDetached(QStringLiteral("/bin/sh"), args)) {
+            log_line(QStringLiteral("push: could not start the CLI"));
+        }
+    });
 }
 
 static int nickelinksync_init()
@@ -309,6 +478,15 @@ static struct nh_dlsym NickelInkSyncDlsym[] = {
     {.name = "_ZN6VolumeD1Ev", .out = nh_symoutptr(Volume__dtor), .desc = "Copy of the book to open"},
     {.name = "_ZN7Content22setChapterIdBookmarkedERK8QVariant", .out = nh_symoutptr(Content__setChapterIdBookmarked), .desc = "Pulled position"},
     {.name = "_ZN7Content14setPercentReadERK8QVariant", .out = nh_symoutptr(Content__setPercentRead), .desc = "Pulled percentage"},
+    {.name = "_ZN23WirelessWorkflowManager14sharedInstanceEv", .out = nh_symoutptr(WirelessWorkflowManager__sharedInstance), .desc = "Wi-Fi", .optional = true},
+    {.name = "_ZN23WirelessWorkflowManager20isInternetAccessibleEv", .out = nh_symoutptr(WirelessWorkflowManager__isInternetAccessible), .desc = "Wi-Fi", .optional = true},
+    {.name = "_ZN23WirelessWorkflowManager15connectWirelessEbb", .out = nh_symoutptr(WirelessWorkflowManager__connectWireless), .desc = "Wi-Fi", .optional = true},
+    {.name = "_ZN20MainWindowController14sharedInstanceEv", .out = nh_symoutptr(MainWindowController__sharedInstance), .desc = "Diagnosis", .optional = true},
+    {.name = "_ZNK20MainWindowController11currentViewEv", .out = nh_symoutptr(MainWindowController__currentView), .desc = "Diagnosis", .optional = true},
+    {.name = "_ZN11ReadingView26bookmarkForCurrentLocationEv", .out = nh_symoutptr(ReadingView__bookmarkForCurrentLocation), .desc = "Diagnosis", .optional = true},
+    {.name = "_ZNK8Bookmark16getStartLocationEv", .out = nh_symoutptr(Bookmark__getStartLocation), .desc = "Diagnosis", .optional = true},
+    {.name = "_ZNK15ContentLocation8toStringEv", .out = nh_symoutptr(ContentLocation__toString), .desc = "Diagnosis", .optional = true},
+    {.name = "_ZN8BookmarkD1Ev", .out = nh_symoutptr(Bookmark__dtor), .desc = "Diagnosis", .optional = true},
     {0},
 };
 

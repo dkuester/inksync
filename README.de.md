@@ -101,9 +101,12 @@ das Plugin vorerst inaktiv.
 3. `Kobo.tgz` in den versteckten Ordner `.kobo/` kopieren und auswerfen.
    Der Tolino installiert das Plugin und startet neu.
 
-Das Log steht in `.adds/NickelInkSync/NickelInkSync.log`. Beim Öffnen eines
-Buchs wartet das Plugin höchstens etwa 15 Sekunden auf den Server; ohne
-WLAN öffnet das Buch unverändert.
+Das Log steht in `.adds/NickelInkSync/NickelInkSync.log`. Das Plugin schaltet
+das WLAN selbst ein, wenn es es braucht; „Jetzt synchronisieren“ des Tolino
+ist nicht nötig (das ist die Tolino-Cloud). Beim Öffnen eines Buchs wartet
+es höchstens etwa 12 Sekunden auf das WLAN und 15 Sekunden auf den Server,
+sonst öffnet das Buch unverändert; beim Verlassen wartet es nie, der Push
+folgt, sobald das WLAN da ist (innerhalb von 45 Sekunden).
 
 **Deinstallieren:** eine leere Datei `.adds/NickelInkSync/uninstall`
 anlegen, auswerfen und den Tolino aus- und wieder einschalten (die Datei

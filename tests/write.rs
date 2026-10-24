@@ -333,6 +333,11 @@ fn live_pull_emits_the_position_and_never_writes() {
     )),
     "{out}"
   );
+  // What the database holds, for the log.
+  assert!(
+    out.contains("  stored    OEBPS/xhtml/xhtml-0-81.xhtml#point(/1/2/1/1:0)\n"),
+    "{out}"
+  );
   // Only with --emit.
   let (_, out) = s.run(&base);
   assert!(!out.contains("NICKELINKSYNC_POSITION"), "{out}");

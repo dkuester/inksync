@@ -577,6 +577,10 @@ fn pull(target: &Target, force: bool, write: bool, emit: bool) -> Result<bool> {
         continue;
       }
     };
+    println!(
+      "  stored    {}",
+      book.position.as_deref().unwrap_or("(never opened)")
+    );
     // Without a device position there is nothing on the device to keep.
     let local = session.local(book).ok().map(|(local, _)| local);
     let decision = match &local {

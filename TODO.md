@@ -261,7 +261,18 @@ beiden Geräte beim Testen nicht durcheinander.
   - [x] **ich:** Zusätzlicher Hook auf `VolumeManager::getById`, nur
     während des Öffnens und nur für dieses Buch: setzt die Position auch
     im neu geladenen Buch (Weg 1, von dir gewählt).
-  - [ ] **du:** Zweiter Test auf dem Shine Color (Anleitung im PR).
+  - [x] **du:** Zweiter Test (2026-10-24): `getById`-Hook greift, Nickel
+    öffnet trotzdem am Kapitelanfang (R3-1 statt R3-130). Der `push` beim
+    Verlassen scheiterte, weil kein WLAN da war (`failed to lookup
+    address`); „Jetzt synchronisieren“ ist die Tolino-Cloud und hatte nur
+    nebenbei das WLAN eingeschaltet.
+  - [x] **ich:** WLAN selbst einschalten (`WirelessWorkflowManager::
+    connectWireless`, wie NickelStorygraph): beim Öffnen höchstens 12 s
+    warten, beim Verlassen im Hintergrund bis 45 s. Diagnose im Log: jeder
+    `getById` des Buchs mit Aufrufer, wo Nickel 3 s und 10 s nach dem Öffnen
+    steht, und die gespeicherte Position in `pull` (Weg A, von dir gewählt).
+  - [ ] **du:** Dritter Test mit der Diagnose-Version; danach entscheiden
+    wir den Weg für das Öffnen.
 
 ## Optional (später)
 
