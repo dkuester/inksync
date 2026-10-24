@@ -18,8 +18,8 @@ fn version_prints_crate_version() {
 }
 
 #[test]
-fn subcommands_are_not_implemented_yet() {
-  for command in ["status", "push", "pull"] {
+fn push_and_pull_are_not_implemented_yet() {
+  for command in ["push", "pull"] {
     let output = run(&[command]);
     assert!(!output.status.success(), "`{command}` should fail");
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -28,4 +28,11 @@ fn subcommands_are_not_implemented_yet() {
       "`{command}` printed: {stderr}"
     );
   }
+}
+
+#[test]
+fn status_needs_a_device() {
+  let output = run(&["status"]);
+  assert!(!output.status.success());
+  assert!(String::from_utf8_lossy(&output.stderr).contains("--device"));
 }
