@@ -97,7 +97,11 @@ follows in a pass of its own.
   jump via Nickel's own navigation. Blocker: find the libnickel symbol for
   "open at position" on 4.46; verification is on-device only.
 - **NickelHook plugin, Qt6 (Tolino 5.x)** (L): same plugin, Qt6 build and
-  `Kobo.tgz` packaging. Blocker: the libnickel symbols of 5.18.
+  `Kobo.tgz` packaging. The 5.18 symbols are found
+  ([docs/nickel-5.18-symbols.md](docs/nickel-5.18-symbols.md)): hook the
+  open (`ReadingController::setVolume`) and pass a copy of the book with the
+  pulled position, push after leaving the book. To verify on the device:
+  that Nickel opens such a copy at the new position.
 
 ## Low priority (optional)
 

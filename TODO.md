@@ -219,9 +219,24 @@ beiden Geräte beim Testen nicht durcheinander.
   - [ ] **ich:** NickelHook-Plugin, das das Programm beim Schließen (`push`)
     und Öffnen (`pull`) aufruft; Paket `KoboRoot.tgz`.
   - [ ] **du:** Test auf dem Clara BW.
-- [ ] **N3 Symbole für Tolino 5.18 (Qt6)**
-  - [ ] **du:** Firmware-Update 5.18 für den Shine Color besorgen.
-  - [ ] **ich:** Dieselben Symbole in der Qt6-Fassung suchen.
+- [x] **N3 Symbole für Tolino 5.18 (Qt6)** · Ergebnis in
+  [`docs/nickel-5.18-symbols.md`](docs/nickel-5.18-symbols.md)
+  - [x] **du:** `libnickel.so` aus dem Kobo-Build 5.18.270971 und die
+    Symbolliste des Tolino-Builds 5.18.264769 bereitgestellt.
+  - [x] **ich:** Buch geöffnet: `ReadingController::setVolume(Volume
+    const&, Bookmark const&)`; Buch verlassen:
+    `ReadingView::leavingReadingExperience()` (speichert die Position
+    vorher selbst). Signaturen und Rückgabetypen per Disassembly geprüft,
+    alle Symbole in der Tolino-Liste.
+  - [x] **ich:** Die Datenbank allein reicht im Plugin nicht: Beim Öffnen
+    hat Nickel das Buch schon gelesen und schreibt seine Fassung beim
+    Blättern zurück. Stattdessen im Öffnen-Hook eine Kopie des `Volume`
+    mit neuer Position übergeben (`Content::setChapterIdBookmarked`,
+    `setPercentRead`); Rückfall `ReadingView::goToBookmark`. Am Gerät
+    noch zu prüfen (N4).
+  - [ ] **ich (K1-Rest, N4):** Auf dem Gerät die Datenbank mit `mode=ro`
+    lesen, nicht `immutable=1`: Im WAL-Modus stünde Nickels letzte
+    Änderung sonst noch in der `-wal`-Datei und fehlte.
 - [ ] **N4 Plugin Qt6**
   - [ ] **ich:** Qt6-Build, Paket `Kobo.tgz`.
   - [ ] **du:** Test auf dem Shine Color.
