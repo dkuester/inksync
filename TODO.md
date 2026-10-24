@@ -102,6 +102,10 @@ beiden Geräte beim Testen nicht durcheinander.
     Book P und Book Q kommen unverändert zurück, KOReaders Markierungen
     derselben Wörter ergeben genau die Tolino-Points, ebenso Book R. `pull`
     zeigt im Probelauf, was auf dem Gerät gespeichert würde (`on device`).
+  - [x] **du:** Am Tolino geprüft (2026-10-24): `pull --force` übersetzt
+    KOReaders Server-Position in Book R (Anfang R2-63) in
+    `OEBPS/text/chapter2.xhtml#point(/1/4/128/1:0)`, wie erwartet. Ob
+    Nickel dort öffnet, prüft P2.
   - [ ] **ich (Kobo-Durchgang):** Rückwärts für den Kobo: XPointer →
     Kobo-Span (kepub) und Adobe-Point für 4.x (Text um Kommentare
     zusammengefasst).
