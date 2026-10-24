@@ -289,6 +289,77 @@ macOS left an AppleDouble file `._KoboReader.sqlite` next to the database
 after the write; it was gone after Nickel had run, and Nickel did not
 mind it.
 
+## Kindle (feasibility check, outside scope)
+
+Checked on a **Kindle Paperwhite 11 (PW5), firmware 5.19.2** (jailbroken,
+but everything below needs only the USB mount), with Book A, C, P, Q and R
+sent through **Send-to-Kindle** (2026-10-24). Read from copies only; the
+format was decoded with our own reader, no Amazon or calibre code.
+Answer: **reading the position over USB and mapping it to KOReader works,
+character-exact; the book identity and writing back do not work yet.**
+
+| Question | Kindle 5.19.2, Send-to-Kindle EPUB |
+|---|---|
+| File | `documents/Downloads/Items01/<file stem>_<32 hex>.kfx`, KFX container (`CONT` v2), **no DRM**, `cde_content_type` PDOC, `YJConversionTools` 2.15.0 |
+| Book metadata | `title` = **file stem** (`book-p`, not `dc:title`), `author` kept, `content_id` = `ASIN` = the 32 hex digits; `book_id` is not the EPUB's `dc:identifier` |
+| Position store | `.sdr/<name><device hash>.yjf` (KRDS key/value file), visible over USB |
+| Keys | `lpr` (last page read, with a millisecond timestamp), `fpr`, `page.history.record` (earlier pages, timestamped) |
+| Highlights | `.sdr/….yjr`, `annotation.personal.highlight` with start and end position |
+| Position format | `base64(01, eid u32le, offset u32le):pid`, e.g. `AScAAADBAAAA:49698` |
+| `cc.db` | not on the USB volume (root only); not needed for the position |
+
+**Position → text.** The KFX holds the text as Ion data: one string per
+block (`$145` content), blocks with an `eid` in storylines (`$259`), one
+storyline per section (`$260`), one section per spine item. `eid` + offset
+name a character in that block's string; `pid` is the linear position in the
+book, and the book's own position maps (`$265` section ranges, `$609`
+per-section runs) give exactly the stored `pid` for every position and
+highlight start we read (29 in five books). Sections follow the spine, so
+section *n* is `DocFragment[n+1]`, and the blocks of a section are the
+EPUB's block elements in order (Book R: `eid` 361 is `R2-99`, `p[99]` of
+`chapter2.xhtml`).
+
+**Offsets** (highlights of the same words as on Kobo and Tolino, see the
+[test fixtures](tests/fixtures/README.md#kindle-kfx-via-send-to-kindle)):
+**code points** (`𝄞` = 1, a combining accent = 1) in the block's text
+**after the conversion**, which differs from the EPUB source:
+
+| Source | In the KFX text | Kindle offset vs. KOReader XPointer |
+|---|---|---|
+| whitespace runs, line breaks, tabs | one space | same |
+| leading whitespace of a block | **dropped** | one less (q6w03: 12, KOReader 13) |
+| no-break space | plain space | same (one character) |
+| soft hyphen | kept | same |
+| inline element (`<em>`) | flattened into the block, with a style run | counted from the block start, not from the `em` text (p5w03: 12, KOReader `em[1]/text()[1].6`) |
+| comment | dropped, text joined | one `text()` instead of two (p7w03: 12, KOReader `text()[2].7`) |
+| CDATA | **text lost**: `<![CDATA[q5w02 <q5w03>]]>` became `]]>` | joined, and the block text differs from the EPUB |
+
+The stored reading position (`lpr`) is the **first character of the page**,
+to the character: Book R gave `R2-99` offset 192 ("Häuser Schatten
+Straße") and `R3-85` offset 187 ("Stuhl Garten Seite"), exactly the words
+the owner read at the top of the page; the same offsets in the EPUB's
+collapsed paragraph text give the KOReader XPointer
+(`…/DocFragment[3]/body[1]/p[99]/text()[1].192`). The Kindle merges two
+adjacent highlights into one (p5w03 + p5w04).
+
+What it would take, and what is open:
+
+- **Book identity:** nothing in the KFX or the `.sdr` leads back to the EPUB
+  file, so KOReader's partial MD5 cannot be found. Needs the manual book
+  mapping (title + author from the KFX, or the 32-hex `content_id`, linked
+  to an EPUB hash), or a text comparison with the EPUB.
+- **Translation:** KFX `eid` + offset → XPointer needs the KFX reader (Ion
+  binary, container, position maps) and a block-by-block alignment with the
+  EPUB DOM, splitting the flattened offset at inline elements and comments
+  and adding leading whitespace back. Books with CDATA cannot be aligned
+  exactly.
+- **Writing back** is not checked: the `.yjf` is on the USB volume, but the
+  reader also keeps the position in `cc.db` and syncs it through Amazon
+  (`sync_lpr`), so a changed `.yjf` may be ignored or overwritten. The
+  Kindle also left `.yjr.bad_file` copies next to the `.yjr` files.
+- Only Send-to-Kindle (PDOC KFX) was checked; books sideloaded as AZW3 or
+  KFX via calibre store their position in other files (`.azw3f`/`.azw3r`).
+
 ## Open technical questions
 
 1. **Shine 5 and Vision Color.** Assumed to match the Shine Color; not checked.

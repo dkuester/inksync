@@ -257,3 +257,22 @@ beiden Geräte beim Testen nicht durcheinander.
   6.x markieren. Auf 4.46 zeigt Nickel Markierungen im kepub verschoben und im
   EPUB teils gar nicht an (gespeichert wird richtig); auf dem Tolino mit 5.18
   tritt das nicht auf.
+
+## Langfristig (andere Gerätefamilien)
+
+- [~] **L1 Kindle ↔ KOSync** · Machbarkeit in `SCOPE.md` (Abschnitt Kindle)
+  - [x] **du:** Book A, C, P, Q und R per Send-to-Kindle auf den Paperwhite
+    11 (5.19.2) geladen, in Book P und Q die Zielwörter markiert, in Book R
+    zwei Seiten gelesen (R2-99, R3-85) und die Wörter oben notiert.
+  - [x] **ich:** Nur lesend kopiert und ausgewertet: KFX ohne DRM, Position
+    `lpr` in der `.yjf` per USB, `eid` + Offset in Codepoints, zeichengenau;
+    Abweichungen zu KOReader bei Leerraum am Absatzanfang, Inline-Elementen
+    und Kommentaren, CDATA-Text geht bei der Umwandlung verloren. Kein Weg
+    vom KFX zur Prüfsumme der EPUB.
+  - [ ] **du:** Gekürzte, anonymisierte Kindle-Daten (`.yjf`/`.yjr` von
+    Book P, Q und R, KFX-Text) durchsehen, bevor sie als Fixtures ins Repo
+    kommen.
+  - [ ] **ich:** KFX-Leser und Übersetzung `eid` + Offset → XPointer
+    (braucht O1 für die Buchzuordnung).
+  - [ ] **du:** Prüfen, ob der Kindle eine geänderte `.yjf` übernimmt
+    (Flugmodus, damit Amazons Sync nicht dazwischenfunkt).

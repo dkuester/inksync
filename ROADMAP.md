@@ -60,6 +60,12 @@ L = a week or more, including verification.
       `backwards`) for `push` and `pull`: "backwards" is judged by the place
       in the book, not by time, because Nickel sets `DateLastRead` on
       opening; terminal prompt, nothing overwritten without a terminal
+- [x] Kindle ↔ KOSync feasibility check (Paperwhite 11, firmware 5.19.2,
+      Send-to-Kindle): DRM-free KFX, position `lpr` in the `.sdr/….yjf`
+      over USB as KFX `eid` + offset, character-exact in code points like
+      KOReader's XPointer (except leading whitespace, inline elements,
+      comments; CDATA text is lost in the conversion); no link from the KFX
+      to the EPUB's hash ([SCOPE.md](SCOPE.md#kindle-feasibility-check-outside-scope))
 - [x] Position translation back to the Tolino: KOReader XPointer → Adobe
       point; every Tolino highlight in Book P and Book Q and the Book R
       positions round-trip unchanged, and KOReader's highlights map to
@@ -121,18 +127,17 @@ follows in a pass of its own.
 
 ## Long term
 
-Feasibility checks only: each ends in a yes/no and a sketch, not in code.
-Both families are outside the current scope (Nickel devices only, see
+Feasibility checks (each ends in a yes/no and a sketch, not in code) and
+what follows from a positive one. Both families are outside the current scope (Nickel devices only, see
 [SCOPE.md](SCOPE.md)).
 
-- **Kindle ↔ KOSync: feasibility check** (M): can the reading progress of a
-  sideloaded book in the stock Kindle reader be read (and written back) and
-  mapped to a KOReader position? Why: Kindle is the most common e-reader.
-  To check: where the stock reader stores the position of a sideloaded book
-  and whether that store is reachable over USB, which position format it
-  uses, and whether the book identity can match KOReader's hash (Kindle
-  formats such as KFX are not the EPUB KOReader opens). Blocker: a Kindle
-  with sideloaded books to read from.
+- **Kindle ↔ KOSync: translation and book mapping** (L): read `lpr`
+  from the `.yjf` of a mounted Kindle, translate KFX `eid` + offset to a
+  KOReader XPointer by aligning the KFX blocks with the EPUB, and link the
+  KFX (`content_id`, title, author) to the EPUB's hash. Why: the feasibility
+  check (see "Recently completed") found the position readable over USB and
+  character-exact. Depends on the manual book mapping; writing back is
+  unchecked (`cc.db` and Amazon's own sync also hold the position).
 - **PocketBook ↔ KOSync: feasibility check** (M): same question for the
   stock PocketBook reader. Why: PocketBook readers are common in Europe and
   open plain EPUBs, so the same file can be used on every device. To check:

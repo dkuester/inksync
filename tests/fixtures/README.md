@@ -234,6 +234,48 @@ at the top of the page. Then `nickelinksync push --device … --book "Book R"`
 and in KOReader pull the progress: it should open on the page with the same
 marker. Later the same with `book-r.kepub.epub` on the Kobo.
 
+## Kindle (KFX via Send-to-Kindle)
+
+Book P, Q and R were also sent to a Kindle Paperwhite 11 (firmware 5.19.2)
+through Send-to-Kindle, which turns them into KFX; the eight words of
+Book P and Book Q were highlighted, and in Book R two pages were read
+(2026-10-24). The Kindle files are not in the repository yet. Format and
+conclusions: [SCOPE.md](../../SCOPE.md#kindle-feasibility-check-outside-scope).
+
+Each highlight is a block `eid`, an offset in code points into the block's
+converted text, and the linear position `pid`. The `eid`s are the
+paragraphs `p1` … `p8` of the probe chapter in order (`eid` 6 to 13):
+
+| Word | Kindle offset | KOReader XPointer | Tolino Adobe point |
+|---|---|---|---|
+| `p1w08` | 42 | `p[1]/text()[1].42` | `/1/4/4/1:42` |
+| `p2w04` | 18 (no-break spaces are plain spaces in the KFX) | `p[2]/text()[1].18` | `/1/4/6/1:20` |
+| `p3w03` | 14 | `p[3]/text()[1].14` | `/1/4/8/1:14` |
+| `p4w03` | 13 | `p[4]/text()[1].13` | `/1/4/10/1:14` |
+| `p5w03` | **12**, from the paragraph start | `p[5]/em[1]/text()[1].6` | `/1/4/12/2/1:6` |
+| `p5w04` | merged with `p5w03` into one highlight (12 to 22) | `p[5]/text()[2].1` | `/1/4/12/3:1` |
+| `p6w03` | 12 | `p[6]/text()[1].12` | `/1/4/14/1:16` |
+| `p7w03` | **12**, comment dropped | `p[7]/text()[2].7` | `/1/4/16/3:7` |
+| `q1w03` | 22 | `p[1]/text()[1].22` | `/1/4/4/1:27` |
+| `q2w03` | 16 | `p[2]/text()[1].16` | `/1/4/6/1:20` |
+| `q3w03` | 14 | `p[3]/text()[1].14` | `/1/4/8/1:18` |
+| `q4w02` | 8 (`𝄞` = 1) | `p[4]/text()[1].8` | `/1/4/10/1:11` |
+| `q5w04` | **10**, CDATA text lost (`q5w01 ]]> q5w04 q5w05.`) | `p[5]/text()[3].1` | `/1/4/12/3:1` |
+| `q6w03` | **12**, leading spaces dropped | `p[6]/text()[1].13` | `/1/4/14/1:18` |
+| `q7w03` | 14 | `p[7]/text()[1].14` | `/1/4/16/1:14` |
+| `q8w02` | 12 (combining accent = 1) | `p[8]/text()[1].12` | `/1/4/18/1:13` |
+
+KOReader paths are below `/body[1]/DocFragment[2]/body[1]/`. Where the
+paragraph has one text node and no leading whitespace, the Kindle offset is
+KOReader's offset.
+
+Book R (page starts, stored as `lpr` and `page.history.record`):
+
+| Read by the owner (top of the page) | Kindle | KOReader XPointer |
+|---|---|---|
+| "Häuser Schatten Straße", in R2-99 | `eid` 361, offset 192, `pid` 78026 | `/body[1]/DocFragment[3]/body[1]/p[99]/text()[1].192` |
+| "Stuhl Garten Seite", in R3-85 | `eid` 513, offset 187, `pid` 126677 | `/body[1]/DocFragment[4]/body[1]/p[85]/text()[1].187` |
+
 ## KOReader state (`koreader/`)
 
 `metadata.epub.lua` from KOReader 2026.07 on macOS (`cre_dom_version`
