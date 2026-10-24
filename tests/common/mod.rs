@@ -192,7 +192,8 @@ fn handle(
       ("GET", path) if path.starts_with("/syncs/progress/") => {
         let document = &path["/syncs/progress/".len()..];
         let stored = documents.lock().unwrap().get(document).cloned();
-        (200, stored.unwrap_or_else(|| json!({})))
+        // Like koreader-sync-server: an empty Lua table, encoded as `[]`.
+        (200, stored.unwrap_or_else(|| json!([])))
       }
       ("PUT", "/syncs/progress") => {
         let mut update: Value = serde_json::from_str(&request.body).unwrap();

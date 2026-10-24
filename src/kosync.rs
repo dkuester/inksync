@@ -7,8 +7,8 @@
 //!   the password, 32 lowercase hex digits) and accepts
 //!   `application/vnd.koreader.v1+json`;
 //! - `GET /users/auth` answers 200 if the user and key are valid, 401 if not;
-//! - `GET /syncs/progress/:document` answers the stored progress, or `{}` if
-//!   there is none;
+//! - `GET /syncs/progress/:document` answers the stored progress, or `{}`
+//!   (koreader-sync-server: `[]`) if there is none;
 //! - `PUT /syncs/progress` with `{document, progress, percentage, device,
 //!   device_id}` stores it; the server sets the timestamp (Unix seconds).
 //!
@@ -183,6 +183,13 @@ struct Raw {
 }
 
 fn parse_progress(value: &Value) -> Result<Option<Progress>, Error> {
+  // koreader-sync-server encodes "nothing stored" as an empty Lua table,
+  // which its JSON encoder writes as `[]`; others send `{}` or `null`.
+  match value {
+    Value::Null => return Ok(None),
+    Value::Array(items) if items.is_empty() => return Ok(None),
+    _ => {}
+  }
   let raw = Raw::deserialize(value).map_err(|e| Error::Response(e.to_string()))?;
   let Some(progress) = raw.progress.filter(|p| !p.is_empty()) else {
     return Ok(None);
@@ -212,7 +219,13 @@ mod tests {
 
   #[test]
   fn empty_progress_is_none() {
-    assert_eq!(parse_progress(&serde_json::json!({})).unwrap(), None);
+    for empty in [
+      serde_json::json!({}),
+      serde_json::json!([]),
+      serde_json::json!(null),
+    ] {
+      assert_eq!(parse_progress(&empty).unwrap(), None, "{empty}");
+    }
   }
 
   #[test]
