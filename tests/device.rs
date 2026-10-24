@@ -2,37 +2,14 @@
 //! `.kobo/KoboReader.sqlite` (from a SQL fixture) and the EPUB fixtures under
 //! `Books/`, the layout of a mounted Kobo or Tolino.
 
+mod common;
+
 use std::fs;
-use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use common::{fake_device, fixtures};
 use nickelinksync::db::Device;
 use nickelinksync::hash::partial_md5;
-use rusqlite::Connection;
-
-fn fixtures() -> PathBuf {
-  Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
-}
-
-/// A fake device in a fresh temporary directory.
-fn fake_device(name: &str, sql: &str, version: &str) -> PathBuf {
-  let root = std::env::temp_dir().join(format!("nickelinksync-{}-{name}", std::process::id()));
-  let _ = fs::remove_dir_all(&root);
-  fs::create_dir_all(root.join(".kobo")).unwrap();
-  fs::create_dir_all(root.join("Books")).unwrap();
-  fs::write(root.join(".kobo/version"), version).unwrap();
-  let db = Connection::open(root.join(".kobo/KoboReader.sqlite")).unwrap();
-  db.execute_batch(&fs::read_to_string(fixtures().join("db").join(sql)).unwrap())
-    .unwrap();
-  for file in ["book-a.epub", "book-a.kepub.epub", "book-c.epub"] {
-    fs::copy(
-      fixtures().join("epub").join(file),
-      root.join("Books").join(file),
-    )
-    .unwrap();
-  }
-  root
-}
 
 /// `partial_md5_checksum` from a KOReader `metadata.epub.lua` fixture.
 fn koreader_md5(sdr: &str) -> String {
@@ -75,7 +52,7 @@ fn kobo_device() {
   let root = fake_device(
     "kobo",
     "kobo-clarabw-4.46-placeholder-books.sql",
-    "N000000000000,4.9.77,4.46.23836,4.9.77,4.9.77,00000000-0000-0000-0000-000000000391\n",
+    common::KOBO_VERSION,
   );
   let device = Device::open(&root).unwrap();
   let fw = device.firmware.as_ref().unwrap();
@@ -132,11 +109,13 @@ fn tolino_status_output() {
   let root = fake_device(
     "tolino",
     "tolino-shinecolor-5.18-placeholder-books.sql",
-    "N000000000000,4.9.77,5.18.264769,4.9.77,4.9.77,00000000-0000-0000-0000-000000000693\n",
+    common::TOLINO_VERSION,
   );
   let output = Command::new(env!("CARGO_BIN_EXE_nickelinksync"))
     .args(["status", "--device"])
     .arg(&root)
+    // No configuration: the server is not asked.
+    .env("NICKELINKSYNC_CONFIG", root.join("no-config.ini"))
     .output()
     .unwrap();
   assert!(output.status.success());

@@ -13,6 +13,9 @@ clap = { version = "4.6.7", features = ["derive"] }
 md-5 = "0.11.0"
 quick-xml = "0.42.0"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+ureq = { version = "3.5.0", default-features = false, features = ["rustls", "json"] }
 zip = { version = "9.0.5", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 # Small binary for the device: size over speed, one codegen unit for LTO,

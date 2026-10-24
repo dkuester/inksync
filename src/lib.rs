@@ -5,9 +5,11 @@
 //! on top of it, used on the desktop and on the device. See `SCOPE.md` for the
 //! architecture.
 
+pub mod config;
 pub mod db;
 pub mod dom;
 pub mod epub;
 pub mod hash;
 pub mod kosync;
 pub mod position;
+pub mod sync;
